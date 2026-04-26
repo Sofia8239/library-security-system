@@ -1,0 +1,5 @@
+{"user_id": 652781, "username": "google@example.com", "password_hash": "3037663063323331366136643161353163626530333839386663386234396535", "salt": "", "role": "client", "failed_attempts": 0, "lockout_until": null}
+{"user_id": 805974, "username": "user.example@gmail.com", "password_hash": "e39e9d05022495cb2d875b5b52e5896e06392339a65d041c6be0e0dae5a77ed8", "salt": "944fb66e7a838c9372ee1bcb6d1775fe", "role": "client", "failed_attempts": 0, "lockout_until": null}
+{"user_id": 98644, "username": "adminuser", "password_hash": "9a86961016d1a8a86b32a9225650f9bff1517b78720129d734c25de2a270519e", "salt": "68c84e9d68e6db34e9751a34d52557f8", "role": "admin", "failed_attempts": 0, "lockout_until": null}
+{"user_id": 518592, "username": "clientuser", "password_hash": "81e1af8659c2fcf3473f0eac09a02f64c3b9a939651f6c161374625dd9a63517", "salt": "a71ee4b88cdbcd4e0414de93bebbc7c4", "role": "client", "failed_attempts": 0, "lockout_until": null}
+{"user_id": 343579, "username": "booklover", "password_hash": "07b1b69d9dc0571c67232d4a9c033daaebe7469035f922349690a18ea75a7986", "salt": "7ea04350906d1554672f73d1bb931f52", "role": "client", "failed_attempts": 0, "lockout_until": null}
