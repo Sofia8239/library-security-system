@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-card auth-card">
+  <h1>Реєстрація</h1>
+  <p>Створіть новий обліковий запис</p>
+
+  <form method="post" class="auth-form">
+    <label>Ім'я</label>
+    <input type="text" name="full_name" placeholder="Full Name" required>
+
+    <label>Електронна пошта</label>
+    <input type="email" name="email" placeholder="Email" required>
+
+    <label>Пароль</label>
+    <input type="password" name="password" placeholder="Password" required>
+
+    <button type="submit">Зареєструватися</button>
+  </form>
+
+  <p class="small-text">Вже маєте обліковий запис? <a href="{{ url_for('login') }}">Увійти</a></p>
+</div>
+{% endblock %}

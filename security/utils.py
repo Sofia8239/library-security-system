@@ -3,10 +3,13 @@ import os
 import re
 import json
 import base64
-from cryptography.fernet import Fernet
+import hmac
+try:
+    from cryptography.fernet import Fernet
+    HAS_FERNET = True
+except ImportError:
+    HAS_FERNET = False
 
-ENCRYPTION_KEY = base64.urlsafe_b64encode(b'a' * 32)
-cipher = Fernet(ENCRYPTION_KEY)
 
 def hash_password(password: str, salt: bytes = None) -> tuple[bytes, bytes]:
     """Hash password with salt using PBKDF2."""
@@ -19,17 +22,42 @@ def verify_password(password: str, hashed: bytes, salt: bytes) -> bool:
     """Verify password against hash."""
     return hash_password(password, salt)[0] == hashed
 
+def _sign(payload: bytes, key: str) -> str:
+    digest = hmac.new(key.encode('utf-8'), payload, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(digest).decode('utf-8')
+
+
 def encrypt_data(data: dict, key: str) -> str:
-    """Encrypt personal data."""
-    cipher = Fernet(key.encode())
-    json_data = json.dumps(data)
-    return cipher.encrypt(json_data.encode()).decode()
+    """Encrypt personal data using Fernet if available, else HMAC."""
+    if HAS_FERNET:
+        fernet = Fernet(key.encode('utf-8'))
+        payload = json.dumps(data, ensure_ascii=False).encode('utf-8')
+        encrypted = fernet.encrypt(payload)
+        return base64.urlsafe_b64encode(encrypted).decode('utf-8')
+    else:
+        # Fallback to HMAC
+        payload = json.dumps(data, ensure_ascii=False).encode('utf-8')
+        signature = _sign(payload, key)
+        return base64.urlsafe_b64encode(payload).decode('utf-8') + '.' + signature
+
 
 def decrypt_data(encrypted: str, key: str) -> dict:
-    """Decrypt personal data."""
-    cipher = Fernet(key.encode())
-    decrypted = cipher.decrypt(encrypted.encode())
-    return json.loads(decrypted.decode())
+    """Decrypt personal data using Fernet if available, else HMAC."""
+    if HAS_FERNET:
+        fernet = Fernet(key.encode('utf-8'))
+        encrypted_bytes = base64.urlsafe_b64decode(encrypted.encode('utf-8'))
+        decrypted = fernet.decrypt(encrypted_bytes)
+        return json.loads(decrypted.decode('utf-8'))
+    else:
+        # Fallback to HMAC
+        if '.' not in encrypted:
+            raise ValueError('Invalid encrypted payload')
+        payload_b64, signature = encrypted.rsplit('.', 1)
+        payload = base64.urlsafe_b64decode(payload_b64.encode('utf-8'))
+        expected = _sign(payload, key)
+        if not hmac.compare_digest(signature, expected):
+            raise ValueError('Invalid signature')
+        return json.loads(payload.decode('utf-8'))
 
 def validate_email(email: str) -> bool:
     """Validate email format."""

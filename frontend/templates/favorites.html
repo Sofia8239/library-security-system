@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-card">
+  <h1>Обране</h1>
+  <p>Відзначені вами книги.</p>
+
+  <div class="book-grid">
+    {% for book in books %}
+      <article class="book-card">
+        <div class="cover" style="background-image:url('{{ resolve_asset_url(book.cover_front_path) }}')"></div>
+        <div class="book-content">
+          <h2>{{ book.title }}</h2>
+          <p class="meta">{{ book.author }} · {{ book.genre }}</p>
+          <p>{{ book.description[:120] }}{% if book.description|length > 120 %}...{% endif %}</p>
+          <div class="actions">
+            <a class="button" href="{{ url_for('book_detail', book_id=book.id) }}">Деталі</a>
+            <a class="button tertiary" href="{{ url_for('toggle_favorite', book_id=book.id) }}">Видалити</a>
+          </div>
+        </div>
+      </article>
+    {% else %}
+      <p>Немає жодної книги в обраному.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-card">
+  <div class="page-header">
+    <div>
+      <h1>Ласкаво просимо, {{ profile_name }}</h1>
+      <p>Знайдіть книги, забронюйте та додайте до обраного.</p>
+    </div>
+  </div>
+
+  <form method="get" class="search-form">
+    <div class="search-bar">
+      <input type="text" name="title" value="{{ criteria.title }}" placeholder="Пошук за назвою, ISBN, автором">
+    </div>
+
+    <div class="filter-dropdown">
+      <select name="genre">
+        <option value="" {% if not criteria.genre %}selected{% endif %}>Всі жанри</option>
+        <option value="fantasy" {% if criteria.genre == 'fantasy' %}selected{% endif %}>Фантастика</option>
+        <option value="crime" {% if criteria.genre == 'crime' %}selected{% endif %}>Кримінал</option>
+        <option value="drama" {% if criteria.genre == 'drama' %}selected{% endif %}>Драма</option>
+        <option value="history" {% if criteria.genre == 'history' %}selected{% endif %}>Історія</option>
+        <option value="science" {% if criteria.genre == 'science' %}selected{% endif %}>Наука</option>
+        <option value="tech" {% if criteria.genre == 'tech' %}selected{% endif %}>Технології</option>
+      </select>
+    </div>
+
+    <button type="submit" class="gold-button">Пошук</button>
+  </form>
+
+  <div class="book-list">
+    {% for book in books %}
+      <article class="book-card-vertical">
+        <div class="cover" style="background-image:url('{{ resolve_asset_url(book.cover_front_path) }}')"></div>
+        <button class="favorite-btn" data-book-id="{{ book.id }}">
+          {% if user.has_favorite(book.id) %}💛{% else %}🤍{% endif %}
+        </button>
+        <div class="book-content">
+          <h2>{{ book.title }}</h2>
+          <p class="meta">{{ book.author }} · {{ book.genre }} · {{ book.year }}</p>
+          <p>{{ book.description[:120] }}{% if book.description|length > 120 %}...{% endif %}</p>
+          <p class="status">Доступних: {{ book.available_copies }} / {{ book.total_copies }}</p>
+          <div class="actions">
+            <a class="button tertiary" href="{{ url_for('book_detail', book_id=book.id) }}">Деталі</a>
+            {% if book.available %}
+              <a class="button" href="{{ url_for('reserve', book_id=book.id) }}">Забронювати</a>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+    {% else %}
+      <p>Книг не знайдено.</p>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.favorite-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const bookId = this.dataset.bookId;
+      fetch(`/favorite/${bookId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          this.textContent = data.is_favorite ? '💛' : '🤍';
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error toggling favorite');
+      });
+    });
+  });
+});
+</script>
+{% endblock %}

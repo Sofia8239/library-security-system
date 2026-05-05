@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-card">
+  <h1>Ласкаво просимо до SafeLibrary!</h1>
+  <p>Оберіть аватар для вашого профілю</p>
+
+  <form method="post" enctype="multipart/form-data" class="onboarding-form">
+    <div class="avatar-options">
+      <div class="option">
+        <h3>Завантажити власне фото</h3>
+        <input type="hidden" name="avatar_type" value="upload">
+        <input type="file" name="avatar" accept="image/*" required>
+        <button type="submit" class="gold-button">Завантажити</button>
+      </div>
+
+      <div class="option">
+        <h3>Або оберіть з готових</h3>
+        <input type="hidden" name="avatar_type" value="default">
+        <div class="default-avatars">
+          {% for avatar in ['owl', 'cat', 'bear', 'fox', 'raccoon'] %}
+            <label class="avatar-choice">
+              <input type="radio" name="default_avatar" value="{{ avatar }}" required>
+              <img src="{{ url_for('assets', path='avatars/defaults/' + avatar + '.png') }}" alt="{{ avatar }}">
+              <span>{{ avatar.title() }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        <button type="submit" class="gold-button">Обрати</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

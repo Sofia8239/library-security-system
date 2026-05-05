@@ -3,6 +3,7 @@ import json
 import datetime
 import os
 import sys
+import base64
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from security.utils import hash_password, verify_password, encrypt_data, decrypt_data, validate_email, validate_phone, validate_date, sanitize_input
 
@@ -155,6 +156,31 @@ class User:
         library.save_data()
         library.log_operation('avatar_updated', {'username': self.username})
 
+    def get_bonus_points(self):
+        """Get current bonus points."""
+        data = self.get_personal_data()
+        return data.get('bonus_points', 0)
+
+    def add_bonus_points(self, points, library):
+        """Add bonus points."""
+        data = self.get_personal_data(library.aes_key)
+        data['bonus_points'] = data.get('bonus_points', 0) + points
+        self.set_personal_data(data, library.aes_key)
+        library.save_data()
+        library.log_operation('bonus_points_added', {'username': self.username, 'points': points})
+
+    def redeem_points(self, cost, library):
+        """Redeem points if sufficient."""
+        current = self.get_bonus_points()
+        if current >= cost:
+            data = self.get_personal_data(library.aes_key)
+            data['bonus_points'] = current - cost
+            self.set_personal_data(data, library.aes_key)
+            library.save_data()
+            library.log_operation('points_redeemed', {'username': self.username, 'cost': cost})
+            return True
+        return False
+
     @staticmethod
     def create_user(username, password, role, personal_data):
         """Create a new user with salted hash and encrypted personal data."""
@@ -176,6 +202,7 @@ class User:
         profile_data.setdefault('profile_picture_path', 'No image selected')
         profile_data.setdefault('phone', '')
         profile_data.setdefault('address', '')
+        profile_data.setdefault('bonus_points', 0)
 
         hashed, salt = hash_password(password)
         if role == 'admin':
@@ -226,7 +253,8 @@ class Book:
         location='Unknown branch',
         description='No description available',
         rating=3.0,
-        cover_path='assets/covers/placeholder.jpg',
+        cover_front_path='assets/covers/placeholder.jpg',
+        cover_back_path='assets/covers/placeholder_back.jpg',
         file_content_path='assets/library/placeholder.txt',
     ):
         self.id = id
@@ -239,7 +267,8 @@ class Book:
         self.location = location
         self.description = description
         self.rating = float(rating)
-        self.cover_path = cover_path
+        self.cover_front_path = cover_front_path
+        self.cover_back_path = cover_back_path
         self.file_content_path = file_content_path
 
     @property
@@ -258,7 +287,8 @@ class Book:
             'location': self.location,
             'description': self.description,
             'rating': self.rating,
-            'cover_path': self.cover_path,
+            'cover_front_path': self.cover_front_path,
+            'cover_back_path': self.cover_back_path,
             'file_content_path': self.file_content_path,
         }
 
@@ -266,12 +296,16 @@ class Book:
     def from_record(cls, data):
         genre = data.get('genre', 'unknown').replace(' ', '_').lower()
         book_id = data['id']
-        default_cover = f'assets/covers/{genre}_{book_id}.jpg'
+        default_cover_front = f'assets/covers/{genre}_{book_id}_front.jpg'
+        default_cover_back = f'assets/covers/{genre}_{book_id}_back.jpg'
         default_file = f'assets/library/{genre}_{book_id}.txt'
-        cover_path = data.get('cover_path') or default_cover
+        cover_front_path = data.get('cover_front_path') or data.get('cover_path') or default_cover_front
+        cover_back_path = data.get('cover_back_path') or default_cover_back
         file_content_path = data.get('file_content_path') or default_file
-        if 'placeholder' in str(cover_path):
-            cover_path = default_cover
+        if 'placeholder' in str(cover_front_path):
+            cover_front_path = default_cover_front
+        if 'placeholder' in str(cover_back_path):
+            cover_back_path = default_cover_back
         if 'placeholder' in str(file_content_path):
             file_content_path = default_file
         return cls(
@@ -285,7 +319,8 @@ class Book:
             data.get('location', 'Unknown branch'),
             data.get('description', 'No description available'),
             data.get('rating', 3.0),
-            cover_path,
+            cover_front_path,
+            cover_back_path,
             file_content_path,
         )
 
@@ -373,8 +408,7 @@ class LibrarySystem:
             with open(key_path, 'r') as f:
                 self.aes_key = f.read().strip()
         else:
-            from cryptography.fernet import Fernet
-            self.aes_key = Fernet.generate_key().decode()
+            self.aes_key = base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8')
             with open(key_path, 'w') as f:
                 f.write(self.aes_key)
 
@@ -595,9 +629,21 @@ class LibrarySystem:
         details_safe = dict(details)
         details_safe.pop('result', None)
         entry = f"[{timestamp}] | ACTION: {action} | DETAILS: {json.dumps(details_safe, ensure_ascii=False)} | RESULT: {result}"
+        
+        # Compute hash of previous line for audit integrity
+        audit_log_path = 'data/audit_log.txt'
+        previous_hash = ''
+        if os.path.exists(audit_log_path):
+            with open(audit_log_path, 'rb') as f:
+                lines = f.readlines()
+                if lines:
+                    previous_hash = hashlib.sha256(lines[-1]).hexdigest()
+        
         checksum = self.compute_checksum(entry)
-        with open('data/system.log', 'a', encoding='utf-8') as f:
-            f.write(f"{entry} | CHECKSUM: {checksum}\n")
+        log_entry = f"{entry} | CHECKSUM: {checksum} | PREV_HASH: {previous_hash}\n"
+        
+        with open(audit_log_path, 'a', encoding='utf-8') as f:
+            f.write(log_entry)
 
     def filter_books(self, criteria):
         self.cleanup_expired_reservations()
@@ -686,6 +732,15 @@ class LibrarySystem:
 
     def delete_user_data(self, user_id):
         if user_id in self.users:
+            user = self.users[user_id]
+            # Delete avatar file
+            profile_data = user.get_personal_data(self.aes_key)
+            avatar_path = profile_data.get('profile_picture_path')
+            if avatar_path and avatar_path != 'No image selected' and os.path.exists(avatar_path):
+                try:
+                    os.remove(avatar_path)
+                except:
+                    pass
             del self.users[user_id]
         self.reviews = [review for review in self.reviews if review.username != user_id]
         self.reservations = [reservation for reservation in self.reservations if reservation.username != user_id]
@@ -844,7 +899,7 @@ class ReservationSystem:
         import string
         while True:
             token = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-            token = f"{token[:2]}-{token[2:6]}-{token[6:]}"
+            token = f"SL-{token[:4]}-{token[4:]}"
             if not any(r.reservation_id == token for r in self.library.reservations):
                 return token
 
@@ -866,6 +921,7 @@ class ReservationSystem:
         reservation = Reservation(user_id, book_id, book.title, start_time, expiry_time, reservation_id)
         self.library.reservations.append(reservation)
         book.available_copies -= 1
+        user.add_bonus_points(10, self.library)
         self.library.save_data()
         self.library.log_operation('reservation_created', reservation.to_record())
         return reservation

@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="profile-card">
+  <div class="profile-header">
+    <div class="avatar" style="background-image: url('{{ resolve_asset_url(profile_data.profile_picture_path) }}');" onerror="this.style.backgroundImage='url({{ url_for('assets', path='avatars/defaults/default.png') }})'"></div>
+    <h1>{{ profile_data.full_name or user.username }}</h1>
+    <div class="bonus-points">
+      <span class="star">⭐</span>
+      <span class="points gold-font">{{ user.get_bonus_points() }} SafePoints</span>
+    </div>
+    <form action="{{ url_for('upload_avatar') }}" method="post" enctype="multipart/form-data" class="avatar-upload">
+      <label for="avatar-input" class="gold-button">Оновити аватар</label>
+      <input type="file" id="avatar-input" name="avatar" accept="image/*" style="display: none;">
+      <button type="submit" class="gold-button">Завантажити</button>
+    </form>
+    <button id="delete-avatar-btn" class="gold-button" style="background: #C06014;">Видалити фото</button>
+  </div>
+
+  <section class="security-card">
+    <h2>Інформація про обліковий запис</h2>
+    <div class="profile-grid">
+      <div><strong>Email:</strong> {{ profile_data.email or user.username }}</div>
+      <div><strong>Телефон:</strong> {{ profile_data.phone or 'Не задано' }}</div>
+      <div><strong>Адреса:</strong> {{ profile_data.address or 'Не задано' }}</div>
+      <div><strong>Роль:</strong> {{ user.role }}</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Мої бронювання</h2>
+    {% if reservations %}
+      {% for reservation in reservations %}
+        <div class="reservation-ticket">
+          <div class="ticket-info">
+            <h3>{{ reservation.book_title }}</h3>
+            <p class="ticket-code gold-font">{{ reservation.reservation_id }}</p>
+          </div>
+          <div class="ticket-timer" data-expiry="{{ reservation.expiry_time }}">{{ reservation.time_remaining().total_seconds() // 3600 }}:{{ '%02d' % ((reservation.time_remaining().total_seconds() % 3600) // 60) }}:{{ '%02d' % (reservation.time_remaining().total_seconds() % 60) }}</div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>Активних бронювань немає.</p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h2>Бібліотечна Крамниця</h2>
+    <div class="rewards-grid">
+      <div class="reward-item">
+        <h3>10% Знижка на преміум</h3>
+        <p>50 SafePoints</p>
+        <button class="gold-button redeem-btn" data-cost="50" data-reward="discount">Обміняти</button>
+      </div>
+      <div class="reward-item">
+        <h3>Закладка SafeLibrary</h3>
+        <p>100 SafePoints</p>
+        <button class="gold-button redeem-btn" data-cost="100" data-reward="bookmark">Обміняти</button>
+      </div>
+      <div class="reward-item">
+        <h3>Блокнот або сумка</h3>
+        <p>200 SafePoints</p>
+        <button class="gold-button redeem-btn" data-cost="200" data-reward="notepad">Обміняти</button>
+      </div>
+      <div class="reward-item">
+        <h3>Керамічна чашка</h3>
+        <p>500 SafePoints</p>
+        <button class="gold-button redeem-btn" data-cost="500" data-reward="cup">Обміняти</button>
+      </div>
+    </div>
+  </section>
+    <form method="post" class="auth-form">
+      <label>Поточний пароль</label>
+      <input type="password" name="current_password" required>
+      <label>Новий пароль</label>
+      <input type="password" name="new_password" required>
+      <button type="submit">Оновити пароль</button>
+    </form>
+    <div style="margin-top: 16px;">
+      <button id="gdpr-btn" class="gold-button" style="background: #C06014;">Видалити всі дані (GDPR)</button>
+      <a href="{{ url_for('logout') }}" class="outlined-btn">Вийти з системи</a>
+    </div>
+  </section>
+</div>
+
+<!-- GDPR Confirm Modal -->
+<div id="gdpr-modal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h2>Підтвердження видалення</h2>
+    <p>Це призведе до видалення всіх ваших даних. Введіть "delete" для підтвердження.</p>
+    <form method="post" action="{{ url_for('gdpr_wipe') }}">
+      <input type="text" name="confirm" placeholder="delete" required>
+      <button type="submit" class="gold-button" style="background: #C06014;">Видалити</button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('gdpr-btn').onclick = function() {
+  document.getElementById('gdpr-modal').style.display = 'block';
+}
+
+document.querySelectorAll('.close').forEach(close => {
+  close.onclick = function() {
+    this.closest('.modal').style.display = 'none';
+  }
+});
+
+window.onclick = function(event) {
+  if (event.target.classList.contains('modal')) {
+    event.target.style.display = 'none';
+  }
+}
+
+// Update countdown timers
+function updateTimers() {
+  document.querySelectorAll('.ticket-timer').forEach(timer => {
+    const expiry = new Date(timer.dataset.expiry);
+    const now = new Date();
+    const remaining = Math.max(0, expiry - now);
+    const hours = Math.floor(remaining / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+    timer.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    if (remaining <= 0) {
+      timer.closest('.reservation-ticket').remove();
+    }
+  });
+}
+
+setInterval(updateTimers, 1000);
+updateTimers();
+
+// Redeem points
+document.querySelectorAll('.redeem-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const cost = this.dataset.cost;
+    const reward = this.dataset.reward;
+    if (confirm(`Обміняти ${cost} SafePoints на ${reward}?`)) {
+      fetch('/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cost: parseInt(cost), reward: reward })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Обмін успішний!');
+          location.reload();
+        } else {
+          alert(data.message);
+        }
+      });
+    }
+  });
+});
+
+// Delete avatar
+document.getElementById('delete-avatar-btn').addEventListener('click', function() {
+  if (confirm('Видалити фото профілю?')) {
+    fetch('/delete_avatar', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        alert(data.message);
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-card auth-card">
+  <h1>SafeLibrary</h1>
+  <p>Увійдіть у свій обліковий запис</p>
+
+  <form method="post" class="auth-form">
+    <label>Електронна пошта</label>
+    <input type="email" name="email" placeholder="Email" required>
+
+    <label>Пароль</label>
+    <input type="password" name="password" placeholder="Password" required>
+
+    <button type="submit">Увійти</button>
+  </form>
+
+  <div class="divider">або</div>
+
+  <button id="google-login-btn" class="gold-button">Увійти через Google</button>
+
+  <p class="small-text">Немає облікового запису? <a href="{{ url_for('register') }}">Зареєструватися</a></p>
+</div>
+
+<!-- Google Auth Modal -->
+<div id="google-modal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h2>Оберіть Google акаунт</h2>
+    <form method="post" class="auth-form">
+      <input type="hidden" name="google" value="1">
+      {% for account in google_accounts %}
+        <button type="submit" name="email" value="{{ account.email }}" class="google-account">
+          <div class="account-info">
+            <div class="account-avatar">{{ account.name[0] }}</div>
+            <div>
+              <div class="account-name">{{ account.name }}</div>
+              <div class="account-email">{{ account.email }}</div>
+            </div>
+          </div>
+        </button>
+      {% endfor %}
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('google-login-btn').onclick = function() {
+  document.getElementById('google-modal').style.display = 'block';
+}
+
+document.querySelector('.close').onclick = function() {
+  document.getElementById('google-modal').style.display = 'none';
+}
+
+window.onclick = function(event) {
+  if (event.target == document.getElementById('google-modal')) {
+    document.getElementById('google-modal').style.display = 'none';
+  }
+}
+</script>
+{% endblock %}

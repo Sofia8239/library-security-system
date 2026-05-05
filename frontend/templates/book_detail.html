@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-card book-detail-card">
+  <div class="detail-header">
+    <div class="flip-card">
+      <div class="flip-card-inner">
+        <div class="flip-card-front" style="background-image:url('{{ resolve_asset_url(book.cover_front_path) }}')"></div>
+        <div class="flip-card-back" style="background-image:url('{{ resolve_asset_url(book.cover_back_path) }}')">
+          <div class="back-content">
+            <h3>Технічні дані</h3>
+            <p><strong>ISBN:</strong> {{ book.id }}</p>
+            <p><strong>Автор:</strong> {{ book.author }}</p>
+            <p><strong>Рік:</strong> {{ book.year }}</p>
+            <p><strong>Жанр:</strong> {{ book.genre }}</p>
+          </div>
+        </div>
+      </div>
+      <button class="flip-btn gold-button">Перевернути</button>
+    </div>
+    <div class="detail-info">
+      <h1>{{ book.title }}</h1>
+      <p class="meta">{{ book.author }} · {{ book.genre }} · {{ book.year }}</p>
+      <p>{{ book.description }}</p>
+      <p><strong>Доступних копій:</strong> {{ book.available_copies }} / {{ book.total_copies }}</p>
+      <p><strong>Рейтинг:</strong> {{ rating|round(1) }}</p>
+      <div class="actions">
+        {% if book.available %}
+          <a class="button" href="{{ url_for('reserve', book_id=book.id) }}">Забронювати</a>
+        {% endif %}
+        <a class="button tertiary" href="{{ url_for('toggle_favorite', book_id=book.id) }}">{{ 'Видалити з обраного' if user.has_favorite(book.id) else 'Обране' }}</a>
+      </div>
+    </div>
+  </div>
+
+  <section class="book-section">
+    <h2>Попередній перегляд</h2>
+    {% if preview_text %}
+      <pre class="preview-text">{{ preview_text }}</pre>
+    {% else %}
+      <p class="error-text">{{ preview_error or 'Попередній перегляд недоступний.' }}</p>
+    {% endif %}
+  </section>
+
+  <section class="book-section">
+    <h2>Відгуки</h2>
+    {% if reviews %}
+      <ul class="review-list">
+        {% for review in reviews %}
+          <li>
+            <strong>{{ review.username }}</strong> — рейтинг {{ review.rating }}
+            <p>{{ review.comment }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>Ще немає відгуків.</p>
+    {% endif %}
+
+    <form method="post" class="auth-form">
+      <label>Ваш рейтинг</label>
+      <select name="rating" required>
+        <option value="" disabled selected>Оцініть книгу</option>
+        {% for value in range(1, 6) %}
+          <option value="{{ value }}">{{ value }}</option>
+        {% endfor %}
+      </select>
+      <label>Коментар</label>
+      <textarea name="comment" rows="3" required></textarea>
+      <button type="submit">Додати відгук</button>
+    </form>
+  </section>
+</div>
+
+<script>
+document.querySelector('.flip-btn').addEventListener('click', function() {
+  const card = document.querySelector('.flip-card-inner');
+  card.classList.toggle('flipped');
+});
+</script>
+{% endblock %}

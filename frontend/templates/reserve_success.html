@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-card">
+  <div class="success-message">
+    <h1>✅ Книга успішно заброньована!</h1>
+    <div class="reservation-details">
+      <h2>{{ reservation.book_title }}</h2>
+      <p><strong>Код бронювання:</strong> <span class="gold-font">{{ reservation.reservation_id }}</span></p>
+      <p><strong>Час закінчення:</strong> {{ reservation.expiry_time }}</p>
+      <div class="countdown">
+        <p>Час до закінчення бронювання:</p>
+        <div class="timer" data-expiry="{{ reservation.expiry_time }}">Обчислення...</div>
+      </div>
+    </div>
+    <div class="actions">
+      <a href="{{ url_for('home') }}" class="gold-button">Повернутися до каталогу</a>
+      <a href="{{ url_for('profile') }}" class="button">Переглянути мої бронювання</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function updateTimer() {
+  const timerEl = document.querySelector('.timer');
+  const expiry = new Date(timerEl.dataset.expiry);
+  const now = new Date();
+  const remaining = Math.max(0, expiry - now);
+  const hours = Math.floor(remaining / (1000 * 60 * 60));
+  const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+  timerEl.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  if (remaining <= 0) {
+    timerEl.textContent = 'Час вийшов!';
+    clearInterval(interval);
+  }
+}
+const interval = setInterval(updateTimer, 1000);
+updateTimer();
+</script>
+{% endblock %}
