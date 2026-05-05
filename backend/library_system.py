@@ -142,7 +142,7 @@ class User:
         if not os.path.exists(image_path):
             raise ValueError('Image file does not exist')
         
-        avatars_dir = 'assets/avatars'
+        avatars_dir = os.path.join(library.base_path, 'assets', 'avatars')
         os.makedirs(avatars_dir, exist_ok=True)
         
         import shutil
@@ -387,7 +387,15 @@ class Reservation:
 
 
 class LibrarySystem:
-    def __init__(self):
+    def __init__(self, base_path=None):
+        self.base_path = os.path.abspath(
+            base_path or os.path.join(os.path.dirname(__file__), '..')
+        )
+        self.data_dir = os.path.join(self.base_path, 'data')
+        self.assets_dir = os.path.join(self.base_path, 'assets')
+        os.makedirs(self.data_dir, exist_ok=True)
+        os.makedirs(self.assets_dir, exist_ok=True)
+
         self.users = {}
         self.books = {}
         self.reviews = []
@@ -402,14 +410,22 @@ class LibrarySystem:
         self.reservation_system = ReservationSystem(self)
         self.load_data()
 
+    def data_path(self, filename):
+        return os.path.join(self.data_dir, filename)
+
+    def asset_path(self, relative_path):
+        if os.path.isabs(relative_path):
+            return relative_path
+        return os.path.join(self.base_path, relative_path)
+
     def load_aes_key(self):
-        key_path = 'data/profile_vault.key'
+        key_path = self.data_path('profile_vault.key')
         if os.path.exists(key_path):
-            with open(key_path, 'r') as f:
+            with open(key_path, 'r', encoding='utf-8') as f:
                 self.aes_key = f.read().strip()
         else:
             self.aes_key = base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8')
-            with open(key_path, 'w') as f:
+            with open(key_path, 'w', encoding='utf-8') as f:
                 f.write(self.aes_key)
 
     def create_user_instance(self, username, password_hash, salt, role, encrypted_personal_data, failed_attempts=0, lockout_until=None):
@@ -430,7 +446,7 @@ class LibrarySystem:
         return Book.from_record(record)
 
     def load_data(self):
-        if not os.path.exists('data/auth_vault.txt') and os.path.exists('data/system.log'):
+        if not os.path.exists(self.data_path('auth_vault.txt')) and os.path.exists(self.data_path('system.log')):
             self.recover_from_log()
             return
 
@@ -439,8 +455,8 @@ class LibrarySystem:
         self.reviews = []
         self.reservations = []
 
-        if os.path.exists('data/auth_vault.txt'):
-            with open('data/auth_vault.txt', 'r', encoding='utf-8') as f:
+        if os.path.exists(self.data_path('auth_vault.txt')):
+            with open(self.data_path('auth_vault.txt'), 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -457,8 +473,8 @@ class LibrarySystem:
                     )
                     self.users[record['username']] = user
 
-        if os.path.exists('data/profile_vault.txt'):
-            with open('data/profile_vault.txt', 'r', encoding='utf-8') as f:
+        if os.path.exists(self.data_path('profile_vault.txt')):
+            with open(self.data_path('profile_vault.txt'), 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -467,8 +483,8 @@ class LibrarySystem:
                     if record['username'] in self.users:
                         self.users[record['username']].encrypted_personal_data = record['encrypted_personal_data']
 
-        if os.path.exists('data/books.txt'):
-            with open('data/books.txt', 'r', encoding='utf-8') as f:
+        if os.path.exists(self.data_path('books.txt')):
+            with open(self.data_path('books.txt'), 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -477,8 +493,8 @@ class LibrarySystem:
                     book = self.create_book_instance(record)
                     self.books[book.id] = book
 
-        if os.path.exists('data/reviews.txt'):
-            with open('data/reviews.txt', 'r', encoding='utf-8') as f:
+        if os.path.exists(self.data_path('reviews.txt')):
+            with open(self.data_path('reviews.txt'), 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -487,8 +503,8 @@ class LibrarySystem:
                     review = Review.from_record(record)
                     self.reviews.append(review)
 
-        if os.path.exists('data/reservations.txt'):
-            with open('data/reservations.txt', 'r', encoding='utf-8') as f:
+        if os.path.exists(self.data_path('reservations.txt')):
+            with open(self.data_path('reservations.txt'), 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -581,7 +597,7 @@ class LibrarySystem:
         self.save_data()
 
     def save_data(self):
-        with open('data/auth_vault.txt', 'w', encoding='utf-8') as f:
+        with open(self.data_path('auth_vault.txt'), 'w', encoding='utf-8') as f:
             for user in self.users.values():
                 f.write(
                     json_line_encode(
@@ -597,7 +613,7 @@ class LibrarySystem:
                     ) + '\n'
                 )
 
-        with open('data/profile_vault.txt', 'w', encoding='utf-8') as f:
+        with open(self.data_path('profile_vault.txt'), 'w', encoding='utf-8') as f:
             for user in self.users.values():
                 f.write(
                     json_line_encode(
@@ -608,15 +624,15 @@ class LibrarySystem:
                     ) + '\n'
                 )
 
-        with open('data/books.txt', 'w', encoding='utf-8') as f:
+        with open(self.data_path('books.txt'), 'w', encoding='utf-8') as f:
             for book in self.books.values():
                 f.write(json_line_encode(book.to_record()) + '\n')
 
-        with open('data/reviews.txt', 'w', encoding='utf-8') as f:
+        with open(self.data_path('reviews.txt'), 'w', encoding='utf-8') as f:
             for review in self.reviews:
                 f.write(json_line_encode(review.to_record()) + '\n')
 
-        with open('data/reservations.txt', 'w', encoding='utf-8') as f:
+        with open(self.data_path('reservations.txt'), 'w', encoding='utf-8') as f:
             for reservation in self.reservations:
                 f.write(json_line_encode(reservation.to_record()) + '\n')
 
@@ -631,7 +647,7 @@ class LibrarySystem:
         entry = f"[{timestamp}] | ACTION: {action} | DETAILS: {json.dumps(details_safe, ensure_ascii=False)} | RESULT: {result}"
         
         # Compute hash of previous line for audit integrity
-        audit_log_path = 'data/audit_log.txt'
+        audit_log_path = self.data_path('audit_log.txt')
         previous_hash = ''
         if os.path.exists(audit_log_path):
             with open(audit_log_path, 'rb') as f:
@@ -771,10 +787,10 @@ class LibrarySystem:
         self.books = {}
         self.reviews = []
         self.reservations = []
-        if not os.path.exists('data/system.log'):
+        if not os.path.exists(self.data_path('system.log')):
             return
 
-        with open('data/system.log', 'r', encoding='utf-8') as f:
+        with open(self.data_path('system.log'), 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -946,11 +962,12 @@ class ReservationSystem:
         if not authorized:
             raise PermissionError('Access denied for this book preview')
 
-        if not os.path.exists(book.file_content_path):
+        file_path = self.library.asset_path(book.file_content_path)
+        if not os.path.exists(file_path):
             raise FileNotFoundError('Book preview file not found')
 
         lines = []
-        with open(book.file_content_path, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             for _ in range(10):
                 line = f.readline()
                 if not line:
@@ -981,7 +998,8 @@ class SecurityAudit:
     def __init__(self, library_system: LibrarySystem):
         self.library = library_system
 
-    def verify_log_integrity(self, log_path='data/system.log'):
+    def verify_log_integrity(self, log_path=None):
+        log_path = log_path or self.library.data_path('system.log')
         if not os.path.exists(log_path):
             return False
         with open(log_path, 'r', encoding='utf-8') as f:

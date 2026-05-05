@@ -1,3 +1,12 @@
 {
-    "python.defaultInterpreterPath": "py"
+    "python.defaultInterpreterPath": "py",
+    "python.testing.unittestEnabled": true,
+    "python.testing.cwd": "${workspaceFolder}",
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        ".",
+        "-p",
+        "test_*.py"
+    ]
 }
