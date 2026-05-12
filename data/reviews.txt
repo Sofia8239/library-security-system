@@ -1,7 +1,0 @@
-{"username": "user.example@gmail.com", "book_id": "1", "rating": 5, "comment": "Best book ever!!!", "timestamp": "2026-04-27T00:42:42.647615"}
-{"username": "user.example@gmail.com", "book_id": "2", "rating": 5, "comment": "Bestb book!", "timestamp": "2026-04-27T00:43:28.315298"}
-{"username": "user.example@gmail.com", "book_id": "2", "rating": 3, "comment": "Нормальна книга)", "timestamp": "2026-04-27T00:55:34.146506"}
-{"username": "sofiiakhoroz22@gmail.com", "book_id": "1", "rating": 4, "comment": "Pretty good!", "timestamp": "2026-04-27T12:05:40.368724"}
-{"username": "sofiiakhoroz22@gmail.com", "book_id": "1", "rating": 3, "comment": "книга дуже класна", "timestamp": "2026-04-27T13:52:44.089199"}
-{"username": "sofiiakhoroz22@gmail.com", "book_id": "1", "rating": 4, "comment": "good", "timestamp": "2026-04-28T10:34:04.542436"}
-{"username": "sofiiakhoroz22@gmail.com", "book_id": "1", "rating": 3, "comment": "анпсаиурм", "timestamp": "2026-04-29T14:48:26.242590"}

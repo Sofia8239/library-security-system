@@ -4,6 +4,7 @@ import datetime
 import os
 import sys
 import base64
+import sqlite3
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from security.utils import hash_password, verify_password, encrypt_data, decrypt_data, validate_email, validate_phone, validate_date, sanitize_input
 
@@ -407,54 +408,82 @@ class LibrarySystem:
             {'email': 'user.example@gmail.com', 'name': 'User Example'}
         ]
         self.load_aes_key()
+        self.db_path = self.data_path('library.db')
         self.reservation_system = ReservationSystem(self)
         self.load_data()
 
     def data_path(self, filename):
         return os.path.join(self.data_dir, filename)
 
-    def asset_path(self, relative_path):
-        if os.path.isabs(relative_path):
-            return relative_path
-        return os.path.join(self.base_path, relative_path)
+    def connect_db(self):
+        conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn
 
-    def load_aes_key(self):
-        key_path = self.data_path('profile_vault.key')
-        if os.path.exists(key_path):
-            with open(key_path, 'r', encoding='utf-8') as f:
-                self.aes_key = f.read().strip()
-        else:
-            self.aes_key = base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8')
-            with open(key_path, 'w', encoding='utf-8') as f:
-                f.write(self.aes_key)
+    def initialize_database(self):
+        conn = self.connect_db()
+        with conn:
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS users (
+                    username TEXT PRIMARY KEY,
+                    password_hash BLOB NOT NULL,
+                    salt BLOB NOT NULL,
+                    role TEXT NOT NULL,
+                    encrypted_personal_data TEXT,
+                    failed_attempts INTEGER DEFAULT 0,
+                    lockout_until TEXT
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS books (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    author TEXT NOT NULL,
+                    genre TEXT NOT NULL,
+                    year INTEGER,
+                    total_copies INTEGER,
+                    available_copies INTEGER,
+                    location TEXT,
+                    description TEXT,
+                    rating REAL,
+                    cover_front_path TEXT,
+                    cover_back_path TEXT,
+                    file_content_path TEXT
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS reviews (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
+                    book_id TEXT NOT NULL,
+                    rating INTEGER NOT NULL,
+                    comment TEXT,
+                    timestamp TEXT NOT NULL
+                )
+                '''
+            )
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS reservations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
+                    book_id TEXT NOT NULL,
+                    book_title TEXT,
+                    start_time TEXT NOT NULL,
+                    expiry_time TEXT NOT NULL,
+                    reservation_id TEXT UNIQUE NOT NULL
+                )
+                '''
+            )
+            conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_reservations_reservation_id ON reservations(reservation_id)')
+        conn.close()
 
-    def create_user_instance(self, username, password_hash, salt, role, encrypted_personal_data, failed_attempts=0, lockout_until=None):
-        if role == 'admin':
-            user = Admin(username, password_hash, salt, role, encrypted_personal_data)
-        elif role == 'advanced':
-            user = AdvancedUser(username, password_hash, salt, role, encrypted_personal_data)
-        elif role == 'client':
-            user = Client(username, password_hash, salt, role, encrypted_personal_data)
-        else:
-            user = User(username, password_hash, salt, role, encrypted_personal_data)
-        user.set_encryption_key(self.aes_key)
-        user.failed_attempts = int(failed_attempts or 0)
-        user.lockout_until = lockout_until
-        return user
-
-    def create_book_instance(self, record):
-        return Book.from_record(record)
-
-    def load_data(self):
-        if not os.path.exists(self.data_path('auth_vault.txt')) and os.path.exists(self.data_path('system.log')):
-            self.recover_from_log()
-            return
-
-        self.users = {}
-        self.books = {}
-        self.reviews = []
-        self.reservations = []
-
+    def _load_data_from_legacy_files(self):
         if os.path.exists(self.data_path('auth_vault.txt')):
             with open(self.data_path('auth_vault.txt'), 'r', encoding='utf-8') as f:
                 for line in f:
@@ -516,9 +545,171 @@ class LibrarySystem:
                         reservation.book_title = book.title if book else 'Unknown Title'
                     self.reservations.append(reservation)
 
+    def load_data(self):
+        self.users = {}
+        self.books = {}
+        self.reviews = []
+        self.reservations = []
+
+        if not os.path.exists(self.db_path):
+            self.initialize_database()
+            legacy_files = [
+                'auth_vault.txt',
+                'profile_vault.txt',
+                'books.txt',
+                'reviews.txt',
+                'reservations.txt'
+            ]
+            if any(os.path.exists(self.data_path(name)) for name in legacy_files):
+                self._load_data_from_legacy_files()
+                self.save_data()
+                return
+            if os.path.exists(self.data_path('system.log')):
+                self.recover_from_log()
+                return
+            self._seed_sample_books()
+            return
+
+        conn = self.connect_db()
+        with conn:
+            for row in conn.execute('SELECT * FROM users'):
+                user = self.create_user_instance(
+                    row['username'],
+                    row['password_hash'],
+                    row['salt'],
+                    row['role'],
+                    row['encrypted_personal_data'] or '',
+                    row['failed_attempts'],
+                    row['lockout_until'],
+                )
+                self.users[row['username']] = user
+
+            for row in conn.execute('SELECT * FROM books'):
+                book = self.create_book_instance(dict(row))
+                self.books[book.id] = book
+
+            for row in conn.execute('SELECT * FROM reviews ORDER BY id'):
+                review = Review.from_record(dict(row))
+                self.reviews.append(review)
+
+            for row in conn.execute('SELECT * FROM reservations ORDER BY id'):
+                reservation = Reservation.from_record(dict(row))
+                if not reservation.book_title:
+                    book = self.books.get(reservation.book_id)
+                    reservation.book_title = book.title if book else 'Unknown Title'
+                self.reservations.append(reservation)
+        conn.close()
+
         self.cleanup_expired_reservations()
         if not self.books:
             self._seed_sample_books()
+
+    def save_data(self):
+        self.initialize_database()
+        conn = self.connect_db()
+        with conn:
+            conn.execute('DELETE FROM reservations')
+            conn.execute('DELETE FROM reviews')
+            conn.execute('DELETE FROM books')
+            conn.execute('DELETE FROM users')
+
+            for user in self.users.values():
+                conn.execute(
+                    '''
+                    INSERT INTO users (username, password_hash, salt, role, encrypted_personal_data, failed_attempts, lockout_until)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        user.username,
+                        sqlite3.Binary(user.password_hash),
+                        sqlite3.Binary(user.salt),
+                        user.role,
+                        user.encrypted_personal_data,
+                        user.failed_attempts,
+                        user.lockout_until,
+                    ),
+                )
+
+            for book in self.books.values():
+                conn.execute(
+                    '''
+                    INSERT INTO books (id, title, author, genre, year, total_copies, available_copies, location, description, rating, cover_front_path, cover_back_path, file_content_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        book.id,
+                        book.title,
+                        book.author,
+                        book.genre,
+                        book.year,
+                        book.total_copies,
+                        book.available_copies,
+                        book.location,
+                        book.description,
+                        book.rating,
+                        book.cover_front_path,
+                        book.cover_back_path,
+                        book.file_content_path,
+                    ),
+                )
+
+            for review in self.reviews:
+                conn.execute(
+                    '''
+                    INSERT INTO reviews (username, book_id, rating, comment, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
+                    ''',
+                    (review.username, review.book_id, review.rating, review.comment, review.timestamp),
+                )
+
+            for reservation in self.reservations:
+                conn.execute(
+                    '''
+                    INSERT INTO reservations (username, book_id, book_title, start_time, expiry_time, reservation_id)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        reservation.username,
+                        reservation.book_id,
+                        reservation.book_title,
+                        reservation.start_time,
+                        reservation.expiry_time,
+                        reservation.reservation_id,
+                    ),
+                )
+        conn.close()
+
+    def asset_path(self, relative_path):
+        if os.path.isabs(relative_path):
+            return relative_path
+        return os.path.join(self.base_path, relative_path)
+
+    def load_aes_key(self):
+        key_path = self.data_path('profile_vault.key')
+        if os.path.exists(key_path):
+            with open(key_path, 'r', encoding='utf-8') as f:
+                self.aes_key = f.read().strip()
+        else:
+            self.aes_key = base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8')
+            with open(key_path, 'w', encoding='utf-8') as f:
+                f.write(self.aes_key)
+
+    def create_user_instance(self, username, password_hash, salt, role, encrypted_personal_data, failed_attempts=0, lockout_until=None):
+        if role == 'admin':
+            user = Admin(username, password_hash, salt, role, encrypted_personal_data)
+        elif role == 'advanced':
+            user = AdvancedUser(username, password_hash, salt, role, encrypted_personal_data)
+        elif role == 'client':
+            user = Client(username, password_hash, salt, role, encrypted_personal_data)
+        else:
+            user = User(username, password_hash, salt, role, encrypted_personal_data)
+        user.set_encryption_key(self.aes_key)
+        user.failed_attempts = int(failed_attempts or 0)
+        user.lockout_until = lockout_until
+        return user
+
+    def create_book_instance(self, record):
+        return Book.from_record(record)
 
     def _seed_sample_books(self):
         sample_books = [
@@ -595,46 +786,6 @@ class LibrarySystem:
             book.file_content_path = f'assets/library/{safe_genre}_{book.id}.txt'
             self.books[book.id] = book
         self.save_data()
-
-    def save_data(self):
-        with open(self.data_path('auth_vault.txt'), 'w', encoding='utf-8') as f:
-            for user in self.users.values():
-                f.write(
-                    json_line_encode(
-                        {
-                            'user_id': hash(user.username) % 1000000,  # Simple ID
-                            'username': user.username,
-                            'password_hash': user.password_hash.hex(),
-                            'salt': user.salt.hex(),
-                            'role': user.role,
-                            'failed_attempts': user.failed_attempts,
-                            'lockout_until': user.lockout_until,
-                        }
-                    ) + '\n'
-                )
-
-        with open(self.data_path('profile_vault.txt'), 'w', encoding='utf-8') as f:
-            for user in self.users.values():
-                f.write(
-                    json_line_encode(
-                        {
-                            'username': user.username,
-                            'encrypted_personal_data': user.encrypted_personal_data,
-                        }
-                    ) + '\n'
-                )
-
-        with open(self.data_path('books.txt'), 'w', encoding='utf-8') as f:
-            for book in self.books.values():
-                f.write(json_line_encode(book.to_record()) + '\n')
-
-        with open(self.data_path('reviews.txt'), 'w', encoding='utf-8') as f:
-            for review in self.reviews:
-                f.write(json_line_encode(review.to_record()) + '\n')
-
-        with open(self.data_path('reservations.txt'), 'w', encoding='utf-8') as f:
-            for reservation in self.reservations:
-                f.write(json_line_encode(reservation.to_record()) + '\n')
 
     def compute_checksum(self, entry_text):
         return hashlib.sha256(entry_text.encode()).hexdigest()
