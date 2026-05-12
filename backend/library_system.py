@@ -411,6 +411,7 @@ class LibrarySystem:
         self.db_path = self.data_path('library.db')
         self.reservation_system = ReservationSystem(self)
         self.load_data()
+        self.initialize_default_users()
 
     def data_path(self, filename):
         return os.path.join(self.data_dir, filename)
@@ -603,6 +604,32 @@ class LibrarySystem:
         self.cleanup_expired_reservations()
         if not self.books:
             self._seed_sample_books()
+
+    def initialize_default_users(self):
+        """Create default Admin and AdvancedUser if they don't exist."""
+        # Create Admin if doesn't exist
+        if 'admin' not in self.users:
+            admin_data = {
+                'email': 'admin@library.com',
+                'name': 'Administrator',
+                'phone': '',
+                'address': 'Library'
+            }
+            admin = User.create_user('admin@library.com', 'admin123', 'admin', admin_data)
+            admin.register(self)
+            print("[Init] Administrator created: admin / admin123")
+        
+        # Create AdvancedUser if doesn't exist
+        if 'advanced_user' not in self.users:
+            advanced_data = {
+                'email': 'advanced@library.com',
+                'name': 'Advanced User',
+                'phone': '',
+                'address': 'Library'
+            }
+            advanced = User.create_user('advanced@library.com', 'advanced123', 'advanced', advanced_data)
+            advanced.register(self)
+            print("[Init] Advanced User created: advanced@library.com / advanced123")
 
     def save_data(self):
         self.initialize_database()
