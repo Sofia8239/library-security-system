@@ -21,9 +21,33 @@
     <div class="profile-grid">
       <div><strong>Email:</strong> {{ profile_data.email or user.username }}</div>
       <div><strong>Телефон:</strong> {{ profile_data.phone or 'Не задано' }}</div>
+      <div><strong>Місто:</strong> {{ profile_data.city or 'Не задано' }}</div>
       <div><strong>Адреса:</strong> {{ profile_data.address or 'Не задано' }}</div>
+      <div><strong>Дата народження:</strong> {{ profile_data.birth_date or 'Не задано' }}</div>
       <div><strong>Роль:</strong> {{ user.role }}</div>
     </div>
+  </section>
+
+  <section>
+    <h2>Редагувати особисті дані</h2>
+    <form method="post" action="{{ url_for('profile') }}" class="auth-form">
+      <label>ПІБ</label>
+      <input type="text" name="full_name" value="{{ profile_data.full_name or '' }}" required>
+
+      <label>Телефон</label>
+      <input type="tel" name="phone" value="{{ profile_data.phone or '' }}">
+
+      <label>Місто</label>
+      <input type="text" name="city" value="{{ profile_data.city or '' }}">
+
+      <label>Адреса</label>
+      <input type="text" name="address" value="{{ profile_data.address or '' }}">
+
+      <label>Дата народження</label>
+      <input type="date" name="birth_date" value="{{ profile_data.birth_date or '' }}">
+
+      <button type="submit">Зберегти дані</button>
+    </form>
   </section>
 
   <section>

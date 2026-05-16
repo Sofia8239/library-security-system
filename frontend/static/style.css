@@ -63,8 +63,8 @@ body {
   }
 
   .bottom-nav {
-    width: 1200px;
-    padding: 16px 0;
+    width: min(100%, 1200px);
+    padding: 16px 20px;
   }
 
   .page-card {
@@ -127,7 +127,7 @@ body {
   }
 
   .bottom-nav {
-    width: 600px;
+    width: min(100%, 600px);
   }
 }
 .app-header {
@@ -206,6 +206,10 @@ body {
   padding: 12px 14px;
   font-size: 16px;
   min-height: 44px;
+}
+
+.auth-form button {
+  width: 100%;
 }
 
 .filter-form input::placeholder {
@@ -381,12 +385,14 @@ body {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: var(--max-width);
+  width: min(100%, 1200px);
+  max-width: 100%;
   background: var(--card-bg);
   border-top: 1px solid var(--card-border);
   display: flex;
   justify-content: space-around;
-  padding: 12px 0;
+  gap: 12px;
+  padding: 14px 20px;
   box-shadow: var(--shadow);
   border-radius: var(--border-radius-large) var(--border-radius-large) 0 0;
 }

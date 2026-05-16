@@ -7,7 +7,7 @@
   <div class="book-grid">
     {% for book in books %}
       <article class="book-card">
-        <div class="cover" style="background-image:url('{{ resolve_asset_url(book.cover_front_path) }}')"></div>
+        <div class="cover" style="background-image:url('{{ resolve_asset_url(book.avatar_book) }}')"></div>
         <div class="book-content">
           <h2>{{ book.title }}</h2>
           <p class="meta">{{ book.author }} · {{ book.genre }}</p>

@@ -41,37 +41,37 @@ class TestSecurity(unittest.TestCase):
 
     def test_gdpr_deletion(self):
         """Test GDPR-compliant data deletion."""
-        profile_data = {"name": "Test User", "email": "test@example.com"}
-        user = User.create_user("testuser", "password", "client", profile_data)
+        profile_data = {"full_name": "Test User", "email": "test@example.com"}
+        user = User.create_user("test@example.com", "password", "client", profile_data)
         user.register(self.library)
-        
-        self.assertIn("testuser", self.library.users)
-        
-        self.library.delete_user_data("testuser")
-        
-        self.assertNotIn("testuser", self.library.users)
+
+        self.assertIn("test@example.com", self.library.users)
+
+        self.library.delete_user_data("test@example.com")
+
+        self.assertNotIn("test@example.com", self.library.users)
 
     def test_rbac_admin_permissions(self):
         """Test admin access to view all users versus denied client access."""
-        admin_profile = {"name": "Admin", "email": "admin@example.com"}
-        admin = User.create_user("adminuser", "password", "admin", admin_profile)
+        admin_profile = {"full_name": "Admin", "email": "admin@example.com"}
+        admin = User.create_user("admin@example.com", "password", "admin", admin_profile)
         admin.register(self.library)
 
-        client_profile = {"name": "Client", "email": "client@example.com"}
-        client = User.create_user("clientuser", "password", "client", client_profile)
+        client_profile = {"full_name": "Client", "email": "client@example.com"}
+        client = User.create_user("client@example.com", "password", "client", client_profile)
         client.register(self.library)
 
         all_users = admin.view_all_users(self.library)
-        self.assertIn("adminuser", all_users)
-        self.assertIn("clientuser", all_users)
+        self.assertIn("admin@example.com", all_users)
+        self.assertIn("client@example.com", all_users)
 
         with self.assertRaises(PermissionError):
             client.view_all_users(self.library)
 
     def test_reservation_id_uniqueness_and_preview(self):
         """Test reservation IDs are unique and open_book returns a preview."""
-        profile_data = {"name": "Book Lover", "email": "reader@example.com"}
-        user = User.create_user("booklover", "password", "client", profile_data)
+        profile_data = {"full_name": "Book Lover", "email": "reader@example.com"}
+        user = User.create_user("reader@example.com", "password", "client", profile_data)
         user.register(self.library)
 
         test_book_id = 'TEST_RESERVE'
@@ -91,8 +91,8 @@ class TestSecurity(unittest.TestCase):
             test_book.available_copies = max(test_book.available_copies, 2)
             self.library.save_data()
 
-        res1 = self.library.reserve_book("booklover", test_book_id)
-        res2 = self.library.reserve_book("booklover", test_book_id)
+        res1 = self.library.reserve_book("reader@example.com", test_book_id)
+        res2 = self.library.reserve_book("reader@example.com", test_book_id)
 
         self.assertNotEqual(res1.reservation_id, res2.reservation_id)
         self.assertEqual(len(res1.reservation_id.replace('-', '')), 10)

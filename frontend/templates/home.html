@@ -31,7 +31,7 @@
   <div class="book-list">
     {% for book in books %}
       <article class="book-card-vertical">
-        <div class="cover" style="background-image:url('{{ resolve_asset_url(book.cover_front_path) }}')"></div>
+        <div class="cover" style="background-image:url('{{ resolve_asset_url(book.avatar_book) }}')"></div>
         <button class="favorite-btn" data-book-id="{{ book.id }}">
           {% if user.has_favorite(book.id) %}💛{% else %}🤍{% endif %}
         </button>

@@ -63,6 +63,10 @@ class TestEndpoints(unittest.TestCase):
                 'full_name': 'Test User',
                 'email': 'testuser@example.com',
                 'password': 'Password123!',
+                'phone': '+380501234567',
+                'city': 'Lviv',
+                'birth_date': '1990-01-01',
+                'address': 'Shevchenka 1',
             },
             follow_redirects=True,
         )

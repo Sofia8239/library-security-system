@@ -5,8 +5,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '_vendor'))
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_from_directory
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from backend.library_system import LibrarySystem, User
+from backend.library_system import LibrarySystem, User, Book
 from security.utils import sanitize_input, validate_email
+from security.utils import validate_phone, validate_date
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
@@ -42,7 +43,11 @@ def login_required(view):
 
 def resolve_asset_url(path):
     if path.startswith('assets/'):
-        return url_for('assets', path=path[len('assets/'):])
+        relative_path = path[len('assets/'):]
+        asset_path = os.path.join(library.base_path, 'assets', relative_path)
+        if not os.path.exists(asset_path):
+            relative_path = 'covers/placeholder.jpg'
+        return url_for('assets', path=relative_path)
     return path
 
 
@@ -87,6 +92,10 @@ def register():
         full_name = sanitize_input(request.form.get('full_name', '').strip())
         email = sanitize_input(request.form.get('email', '').strip().lower())
         password = request.form.get('password', '')
+        phone = sanitize_input(request.form.get('phone', '').strip())
+        birth_date = sanitize_input(request.form.get('birth_date', '').strip())
+        address = sanitize_input(request.form.get('address', '').strip())
+        city = sanitize_input(request.form.get('city', '').strip())
 
         if not full_name or not email or not password:
             flash('Заповніть усі поля', 'danger')
@@ -96,13 +105,22 @@ def register():
             flash('Недійсна електронна адреса', 'danger')
             return redirect(url_for('register'))
 
+        if phone and not validate_phone(phone):
+            flash('Недійсний номер телефону', 'danger')
+            return redirect(url_for('register'))
+        if birth_date and not validate_date(birth_date):
+            flash('Недійсна дата народження', 'danger')
+            return redirect(url_for('register'))
+
         try:
             profile_data = {
                 'full_name': full_name,
                 'email': email,
                 'favorites': [],
-                'phone': '',
-                'address': '',
+                'phone': phone,
+                'address': address,
+                'city': city,
+                'birth_date': birth_date,
                 'profile_picture_path': 'No image selected',
             }
             user = User.create_user(email, password, 'client', profile_data)
@@ -189,17 +207,49 @@ def profile():
     reservations = library.get_active_reservations(user.username)
 
     if request.method == 'POST':
-        old_password = request.form.get('current_password', '')
-        new_password = request.form.get('new_password', '')
-        if not old_password or not new_password:
-            flash('Заповніть обидва поля для зміни пароля', 'danger')
+        # Determine if this is profile update or password change
+        if 'current_password' in request.form or 'new_password' in request.form:
+            old_password = request.form.get('current_password', '')
+            new_password = request.form.get('new_password', '')
+            if not old_password or not new_password:
+                flash('Заповніть обидва поля для зміни пароля', 'danger')
+            else:
+                try:
+                    library.update_password(user.username, old_password, new_password)
+                    flash('Пароль оновлено', 'success')
+                except Exception as exc:
+                    flash(str(exc), 'danger')
+            return redirect(url_for('profile'))
         else:
+            # profile data update
+            full_name = sanitize_input(request.form.get('full_name', '').strip())
+            phone = sanitize_input(request.form.get('phone', '').strip())
+            address = sanitize_input(request.form.get('address', '').strip())
+            city = sanitize_input(request.form.get('city', '').strip())
+            birth_date = sanitize_input(request.form.get('birth_date', '').strip())
+            if not full_name:
+                flash('ПІБ є обов\'язковим', 'danger')
+                return redirect(url_for('profile'))
+            if phone and not validate_phone(phone):
+                flash('Недійсний номер телефону', 'danger')
+                return redirect(url_for('profile'))
+            if birth_date and not validate_date(birth_date):
+                flash('Недійсна дата народження', 'danger')
+                return redirect(url_for('profile'))
             try:
-                library.update_password(user.username, old_password, new_password)
-                flash('Пароль оновлено', 'success')
+                data = user.get_personal_data(library.aes_key)
+                data['full_name'] = full_name
+                data['phone'] = phone
+                data['address'] = address
+                data['city'] = city
+                data['birth_date'] = birth_date
+                user.set_personal_data(data, library.aes_key)
+                library.save_data()
+                library.log_operation('profile_updated', {'username': user.username})
+                flash('Профіль оновлено', 'success')
             except Exception as exc:
                 flash(str(exc), 'danger')
-        return redirect(url_for('profile'))
+            return redirect(url_for('profile'))
 
     return render_template(
         'profile.html',
@@ -208,6 +258,210 @@ def profile():
         reservations=reservations,
         resolve_asset_url=resolve_asset_url,
     )
+
+
+@app.route('/users')
+@login_required
+def users_list():
+    user = current_user()
+    if not user or user.role not in {'admin', 'advanced'}:
+        flash('Доступ заборонено', 'danger')
+        return redirect(url_for('home'))
+    users = user.view_all_users(library)
+    return render_template('admin_users.html', user=user, users=users, resolve_asset_url=resolve_asset_url, is_admin=(user.role == 'admin'))
+
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    user = current_user()
+    if not user or user.role != 'admin':
+        flash('Доступ заборонено', 'danger')
+        return redirect(url_for('home'))
+    users = user.view_all_users(library)
+    return render_template('admin_users.html', user=user, users=users, resolve_asset_url=resolve_asset_url, is_admin=True)
+
+
+@app.route('/admin/add_user', methods=['GET', 'POST'])
+@login_required
+def admin_add_user():
+    admin = current_user()
+    if not admin or admin.role != 'admin':
+        flash('Доступ заборонено', 'danger')
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        full_name = sanitize_input(request.form.get('full_name', '').strip())
+        email = sanitize_input(request.form.get('email', '').strip().lower())
+        password = request.form.get('password', '')
+        role = sanitize_input(request.form.get('role', 'client'))
+        phone = sanitize_input(request.form.get('phone', '').strip())
+        birth_date = sanitize_input(request.form.get('birth_date', '').strip())
+        address = sanitize_input(request.form.get('address', '').strip())
+        city = sanitize_input(request.form.get('city', '').strip())
+        if not full_name or not email or not password:
+            flash('Заповніть обов\'язкові поля', 'danger')
+            return redirect(url_for('admin_add_user'))
+        if phone and not validate_phone(phone):
+            flash('Недійсний телефон', 'danger')
+            return redirect(url_for('admin_add_user'))
+        if birth_date and not validate_date(birth_date):
+            flash('Недійсна дата', 'danger')
+            return redirect(url_for('admin_add_user'))
+        try:
+            profile_data = {
+                'full_name': full_name,
+                'email': email,
+                'phone': phone,
+                'address': address,
+                'city': city,
+                'birth_date': birth_date,
+                'favorites': [],
+                'profile_picture_path': 'No image selected',
+            }
+            new_user = User.create_user(email, password, role, profile_data)
+            admin.add_user(library, new_user)
+            flash('Користувача створено', 'success')
+            return redirect(url_for('admin_users'))
+        except Exception as exc:
+            flash(str(exc), 'danger')
+            return redirect(url_for('admin_add_user'))
+    return render_template('admin_add_user.html', user=admin)
+
+
+@app.route('/admin/delete_user/<path:email>', methods=['POST'])
+@login_required
+def admin_delete_user(email):
+    admin = current_user()
+    if not admin or admin.role != 'admin':
+        flash('Доступ заборонено', 'danger')
+        return redirect(url_for('home'))
+    # Prevent admin from deleting self
+    if email == admin.username:
+        flash('Не можна видалити себе', 'danger')
+        return redirect(url_for('admin_users'))
+    try:
+        library.delete_user_data(email)
+        flash('Користувача видалено', 'success')
+    except Exception as exc:
+        flash(str(exc), 'danger')
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/books')
+@login_required
+def admin_books():
+    user = current_user()
+    if not user or user.role != 'admin':
+        flash('Доступ заборонено', 'danger')
+        return redirect(url_for('home'))
+    return render_template('admin_books.html', user=user, books=library.books.values(), resolve_asset_url=resolve_asset_url)
+
+
+@app.route('/admin/add_book', methods=['GET', 'POST'])
+@login_required
+def admin_add_book():
+    admin = current_user()
+    if not admin or admin.role != 'admin':
+        flash('Доступ заборонено', 'danger')
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        book_id = sanitize_input(request.form.get('id', '').strip())
+        title = sanitize_input(request.form.get('title', '').strip())
+        author = sanitize_input(request.form.get('author', '').strip())
+        genre = sanitize_input(request.form.get('genre', '').strip())
+        year = request.form.get('year', '').strip()
+        total_copies = request.form.get('total_copies', '').strip()
+        available_copies = request.form.get('available_copies', '').strip()
+        location = sanitize_input(request.form.get('location', '').strip())
+        description = sanitize_input(request.form.get('description', '').strip())
+        rating = request.form.get('rating', '').strip()
+        avatar_book = sanitize_input(request.form.get('avatar_book', '').strip())
+        file_content_path = sanitize_input(request.form.get('file_content_path', '').strip())
+        if not book_id or not title or not author or not genre:
+            flash('Заповніть обов’язкові поля книги', 'danger')
+            return redirect(url_for('admin_add_book'))
+        try:
+            book = Book(
+                book_id,
+                title,
+                author,
+                genre,
+                int(year) if year.isdigit() else 2024,
+                int(total_copies) if total_copies.isdigit() else 1,
+                int(available_copies) if available_copies.isdigit() else int(total_copies) if total_copies.isdigit() else 1,
+                location or 'Unknown branch',
+                description or 'No description available',
+                float(rating) if rating.replace('.', '', 1).isdigit() else 3.0,
+                avatar_book=avatar_book or f'assets/covers/{genre}_{book_id}.jpg',
+                file_content_path=file_content_path or f'assets/library/{genre}_{book_id}.txt',
+            )
+            library.add_book(book)
+            flash('Книгу додано', 'success')
+            return redirect(url_for('admin_books'))
+        except Exception as exc:
+            flash(str(exc), 'danger')
+            return redirect(url_for('admin_add_book'))
+    return render_template('admin_book_form.html', action='add', book=None, user=admin)
+
+
+@app.route('/admin/edit_book/<book_id>', methods=['GET', 'POST'])
+@login_required
+def admin_edit_book(book_id):
+    admin = current_user()
+    if not admin or admin.role != 'admin':
+        flash('Доступ заборонено', 'danger')
+        return redirect(url_for('home'))
+    book = library.books.get(book_id)
+    if not book:
+        flash('Книга не знайдена', 'danger')
+        return redirect(url_for('admin_books'))
+    if request.method == 'POST':
+        title = sanitize_input(request.form.get('title', '').strip())
+        author = sanitize_input(request.form.get('author', '').strip())
+        genre = sanitize_input(request.form.get('genre', '').strip())
+        year = request.form.get('year', '').strip()
+        total_copies = request.form.get('total_copies', '').strip()
+        available_copies = request.form.get('available_copies', '').strip()
+        location = sanitize_input(request.form.get('location', '').strip())
+        description = sanitize_input(request.form.get('description', '').strip())
+        rating = request.form.get('rating', '').strip()
+        avatar_book = sanitize_input(request.form.get('avatar_book', '').strip())
+        file_content_path = sanitize_input(request.form.get('file_content_path', '').strip())
+        try:
+            updated = library.update_book(
+                book_id,
+                title=title or book.title,
+                author=author or book.author,
+                genre=genre or book.genre,
+                year=int(year) if year.isdigit() else book.year,
+                total_copies=int(total_copies) if total_copies.isdigit() else book.total_copies,
+                available_copies=int(available_copies) if available_copies.isdigit() else book.available_copies,
+                location=location or book.location,
+                description=description or book.description,
+                rating=float(rating) if rating.replace('.', '', 1).isdigit() else book.rating,
+                avatar_book=avatar_book or getattr(book, 'avatar_book', None) or getattr(book, 'cover_front_path', None) or getattr(book, 'cover_back_path', None),
+                file_content_path=file_content_path or book.file_content_path,
+            )
+            flash('Книгу оновлено', 'success')
+            return redirect(url_for('admin_books'))
+        except Exception as exc:
+            flash(str(exc), 'danger')
+            return redirect(url_for('admin_edit_book', book_id=book_id))
+    return render_template('admin_book_form.html', action='edit', book=book, user=admin)
+
+
+@app.route('/admin/delete_book/<book_id>', methods=['POST'])
+@login_required
+def admin_delete_book(book_id):
+    admin = current_user()
+    if not admin or admin.role != 'admin':
+        flash('Доступ заборонено', 'danger')
+        return redirect(url_for('home'))
+    try:
+        library.delete_book(book_id)
+        flash('Книгу видалено', 'success')
+    except Exception as exc:
+        flash(str(exc), 'danger')
+    return redirect(url_for('admin_books'))
 
 
 @app.route('/book/<book_id>', methods=['GET', 'POST'])

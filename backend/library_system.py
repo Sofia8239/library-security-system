@@ -135,6 +135,23 @@ class User:
     def view_all_users(self, library):
         raise PermissionError('Access denied')
 
+    def get_public_info(self):
+        """Return non-personal information safe to display to other users.
+
+        This excludes personal fields such as `full_name`, `email`, `phone`,
+        `address`, and `birth_date` but includes role and non-sensitive metadata.
+        """
+        try:
+            data = self.get_personal_data(self.encryption_key or None) or {}
+        except Exception:
+            data = {}
+        return {
+            'username': self.username,
+            'role': self.role,
+            'favorites_count': len(data.get('favorites', [])),
+            'profile_picture_path': data.get('profile_picture_path', 'No image selected'),
+        }
+
     def view_orders(self, library):
         raise PermissionError('Access denied')
 
@@ -184,13 +201,26 @@ class User:
 
     @staticmethod
     def create_user(username, password, role, personal_data):
-        """Create a new user with salted hash and encrypted personal data."""
+        """Create a new user with salted hash and encrypted personal data.
+
+        The system treats the user's email as their canonical username. If a
+        different `username` is passed, it will be overridden by the provided
+        `personal_data['email']` value. `personal_data` must contain at least
+        `email` and a full name (`full_name` or `name`)."""
         role = role.lower().strip()
         if role not in {'admin', 'advanced', 'client'}:
             raise ValueError('Role must be admin, advanced, or client')
 
         if 'email' not in personal_data or not validate_email(personal_data['email']):
             raise ValueError('Valid email is required')
+
+        # Normalize username to be the email
+        username = personal_data['email'].strip().lower()
+
+        # Allow either 'full_name' or legacy 'name'
+        full_name = personal_data.get('full_name') or personal_data.get('name')
+        if not full_name or not str(full_name).strip():
+            raise ValueError('Full name is required')
 
         if 'phone' in personal_data and personal_data.get('phone') and not validate_phone(personal_data['phone']):
             raise ValueError('Invalid phone')
@@ -199,10 +229,14 @@ class User:
             raise ValueError('Invalid birth date')
 
         profile_data = dict(personal_data)
+        # normalize name field
+        profile_data['full_name'] = full_name
         profile_data.setdefault('favorites', [])
         profile_data.setdefault('profile_picture_path', 'No image selected')
         profile_data.setdefault('phone', '')
         profile_data.setdefault('address', '')
+        profile_data.setdefault('city', '')
+        profile_data.setdefault('birth_date', '')
         profile_data.setdefault('bonus_points', 0)
 
         hashed, salt = hash_password(password)
@@ -217,7 +251,11 @@ class Admin(User):
     def view_all_users(self, library):
         if self.role != 'admin':
             raise PermissionError('Access denied')
-        return library.users
+        # Return sanitized user info (no personal data)
+        result = {}
+        for uname, user in library.users.items():
+            result[uname] = user.get_public_info()
+        return result
 
     def add_user(self, library, user):
         if self.role != 'admin':
@@ -225,12 +263,31 @@ class Admin(User):
         user.register(library)
         library.log_operation('user_added', {'username': user.username, 'role': user.role})
 
+    def edit_book(self, library, book_id, **data):
+        if self.role != 'admin':
+            raise PermissionError('Access denied')
+        return library.update_book(book_id, **data)
+
+    def delete_book(self, library, book_id):
+        if self.role != 'admin':
+            raise PermissionError('Access denied')
+        library.delete_book(book_id)
+        library.log_operation('book_removed', {'book_id': book_id})
+
 
 class AdvancedUser(User):
     def view_orders(self, library):
         if self.role != 'advanced':
             raise PermissionError('Access denied')
         return library.reservations
+
+    def view_all_users(self, library):
+        if self.role != 'advanced':
+            raise PermissionError('Access denied')
+        result = {}
+        for uname, user in library.users.items():
+            result[uname] = user.get_public_info()
+        return result
 
     def send_reminder(self, username, message):
         print(f'SMS to {username}: {message}')
@@ -256,6 +313,7 @@ class Book:
         rating=3.0,
         cover_front_path='assets/covers/placeholder.jpg',
         cover_back_path='assets/covers/placeholder_back.jpg',
+        avatar_book=None,
         file_content_path='assets/library/placeholder.txt',
     ):
         self.id = id
@@ -270,6 +328,15 @@ class Book:
         self.rating = float(rating)
         self.cover_front_path = cover_front_path
         self.cover_back_path = cover_back_path
+        if avatar_book:
+            self.avatar_book = avatar_book
+        elif cover_front_path and 'placeholder' not in cover_front_path:
+            self.avatar_book = cover_front_path
+        elif cover_back_path and 'placeholder' not in cover_back_path:
+            self.avatar_book = cover_back_path
+        else:
+            safe_genre = str(genre).replace(' ', '_').lower()
+            self.avatar_book = f'assets/covers/{safe_genre}_{id}.jpg'
         self.file_content_path = file_content_path
 
     @property
@@ -288,8 +355,7 @@ class Book:
             'location': self.location,
             'description': self.description,
             'rating': self.rating,
-            'cover_front_path': self.cover_front_path,
-            'cover_back_path': self.cover_back_path,
+            'avatar_book': self.avatar_book,
             'file_content_path': self.file_content_path,
         }
 
@@ -297,16 +363,12 @@ class Book:
     def from_record(cls, data):
         genre = data.get('genre', 'unknown').replace(' ', '_').lower()
         book_id = data['id']
-        default_cover_front = f'assets/covers/{genre}_{book_id}_front.jpg'
-        default_cover_back = f'assets/covers/{genre}_{book_id}_back.jpg'
+        default_avatar = f'assets/covers/{genre}_{book_id}.jpg'
         default_file = f'assets/library/{genre}_{book_id}.txt'
-        cover_front_path = data.get('cover_front_path') or data.get('cover_path') or default_cover_front
-        cover_back_path = data.get('cover_back_path') or default_cover_back
+        avatar_book = data.get('avatar_book') or data.get('cover_front_path') or data.get('cover_back_path') or default_avatar
         file_content_path = data.get('file_content_path') or default_file
-        if 'placeholder' in str(cover_front_path):
-            cover_front_path = default_cover_front
-        if 'placeholder' in str(cover_back_path):
-            cover_back_path = default_cover_back
+        if 'placeholder' in str(avatar_book):
+            avatar_book = default_avatar
         if 'placeholder' in str(file_content_path):
             file_content_path = default_file
         return cls(
@@ -320,9 +382,10 @@ class Book:
             data.get('location', 'Unknown branch'),
             data.get('description', 'No description available'),
             data.get('rating', 3.0),
-            cover_front_path,
-            cover_back_path,
-            file_content_path,
+            cover_front_path=avatar_book,
+            cover_back_path=avatar_book,
+            avatar_book=avatar_book,
+            file_content_path=file_content_path,
         )
 
 
@@ -421,16 +484,169 @@ class LibrarySystem:
         conn.row_factory = sqlite3.Row
         return conn
 
+    def _combine_password_blob(self, password_hash, salt):
+        if password_hash is None:
+            password_hash = b''
+        if salt is None:
+            salt = b''
+        if isinstance(password_hash, memoryview):
+            password_hash = bytes(password_hash)
+        if isinstance(salt, memoryview):
+            salt = bytes(salt)
+        return salt + password_hash
+
+    def _split_password_blob(self, password_blob):
+        if password_blob is None:
+            return b'', b''
+        if isinstance(password_blob, memoryview):
+            password_blob = bytes(password_blob)
+        if len(password_blob) <= 16:
+            return password_blob, b''
+        return password_blob[16:], password_blob[:16]
+
+    def _migrate_user_schema(self, conn):
+        rows = [r['name'] for r in conn.execute("PRAGMA table_info(users)")]
+        if not rows:
+            return
+        expected = {'email', 'password_hash', 'role', 'full_name', 'birth_date', 'phone', 'address', 'city', 'encrypted_personal_data', 'failed_attempts', 'lockout_until'}
+        if expected.issubset(rows):
+            return
+        if 'email' not in rows or 'salt' in rows or 'city' not in rows or 'full_name' not in rows or 'birth_date' not in rows or 'phone' not in rows or 'address' not in rows:
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS users_new (
+                    email TEXT PRIMARY KEY,
+                    password_hash BLOB NOT NULL,
+                    role TEXT NOT NULL,
+                    full_name TEXT,
+                    birth_date TEXT,
+                    phone TEXT,
+                    address TEXT,
+                    city TEXT,
+                    encrypted_personal_data TEXT,
+                    failed_attempts INTEGER DEFAULT 0,
+                    lockout_until TEXT
+                )
+                '''
+            )
+            old_rows = conn.execute('SELECT * FROM users').fetchall()
+            for old_row in old_rows:
+                password_blob = old_row['password_hash']
+                if isinstance(password_blob, memoryview):
+                    password_blob = bytes(password_blob)
+                if isinstance(password_blob, str):
+                    password_blob = password_blob.encode('utf-8')
+                salt = b''
+                if 'salt' in rows:
+                    salt = old_row['salt']
+                    if isinstance(salt, memoryview):
+                        salt = bytes(salt)
+                    if isinstance(salt, str):
+                        salt = salt.encode('utf-8')
+                combined_password = self._combine_password_blob(password_blob, salt)
+                role = old_row['role'] if 'role' in rows else 'client'
+                full_name = old_row['full_name'] if 'full_name' in rows else (old_row['name'] if 'name' in rows else '')
+                birth_date = old_row['birth_date'] if 'birth_date' in rows else ''
+                phone = old_row['phone'] if 'phone' in rows else ''
+                address = old_row['address'] if 'address' in rows else ''
+                city = old_row['city'] if 'city' in rows else ''
+                encrypted_personal_data = old_row['encrypted_personal_data'] if 'encrypted_personal_data' in rows else ''
+                failed_attempts = old_row['failed_attempts'] if 'failed_attempts' in rows else 0
+                lockout_until = old_row['lockout_until'] if 'lockout_until' in rows else None
+                email = old_row['email'] if 'email' in rows else old_row['username']
+                conn.execute(
+                    '''
+                    INSERT INTO users_new (email, password_hash, role, full_name, birth_date, phone, address, city, encrypted_personal_data, failed_attempts, lockout_until)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        email,
+                        sqlite3.Binary(combined_password),
+                        role,
+                        full_name,
+                        birth_date,
+                        phone,
+                        address,
+                        city,
+                        encrypted_personal_data,
+                        failed_attempts,
+                        lockout_until,
+                    ),
+                )
+            conn.execute('DROP TABLE users')
+            conn.execute('ALTER TABLE users_new RENAME TO users')
+
+    def _migrate_book_schema(self, conn):
+        rows = [r['name'] for r in conn.execute("PRAGMA table_info(books)")]
+        if not rows:
+            return
+        expected = {'id', 'title', 'author', 'genre', 'year', 'total_copies', 'available_copies', 'location', 'description', 'rating', 'avatar_book', 'file_content_path'}
+        if expected.issubset(rows):
+            return
+        if 'id' in rows and 'title' in rows and 'author' in rows:
+            conn.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS books_new (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    author TEXT NOT NULL,
+                    genre TEXT NOT NULL,
+                    year INTEGER,
+                    total_copies INTEGER,
+                    available_copies INTEGER,
+                    location TEXT,
+                    description TEXT,
+                    rating REAL,
+                    avatar_book TEXT,
+                    file_content_path TEXT
+                )
+                '''
+            )
+            old_rows = conn.execute('SELECT * FROM books').fetchall()
+            for old_row in old_rows:
+                old_row = dict(old_row)
+                avatar_book = old_row.get('avatar_book') or old_row.get('cover_front_path') or old_row.get('cover_back_path')
+                if not avatar_book:
+                    genre = old_row.get('genre', 'unknown').replace(' ', '_').lower()
+                    avatar_book = f'assets/covers/{genre}_{old_row.get("id")}.jpg'
+                file_content_path = old_row.get('file_content_path') or f"assets/library/{old_row.get('genre', 'unknown').replace(' ', '_').lower()}_{old_row.get('id')}.txt"
+                conn.execute(
+                    '''
+                    INSERT INTO books_new (id, title, author, genre, year, total_copies, available_copies, location, description, rating, avatar_book, file_content_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        old_row.get('id'),
+                        old_row.get('title'),
+                        old_row.get('author'),
+                        old_row.get('genre'),
+                        old_row.get('year'),
+                        old_row.get('total_copies'),
+                        old_row.get('available_copies'),
+                        old_row.get('location'),
+                        old_row.get('description'),
+                        old_row.get('rating'),
+                        avatar_book,
+                        file_content_path,
+                    ),
+                )
+            conn.execute('DROP TABLE books')
+            conn.execute('ALTER TABLE books_new RENAME TO books')
+
     def initialize_database(self):
         conn = self.connect_db()
         with conn:
             conn.execute(
                 '''
                 CREATE TABLE IF NOT EXISTS users (
-                    username TEXT PRIMARY KEY,
+                    email TEXT PRIMARY KEY,
                     password_hash BLOB NOT NULL,
-                    salt BLOB NOT NULL,
                     role TEXT NOT NULL,
+                    full_name TEXT,
+                    birth_date TEXT,
+                    phone TEXT,
+                    address TEXT,
+                    city TEXT,
                     encrypted_personal_data TEXT,
                     failed_attempts INTEGER DEFAULT 0,
                     lockout_until TEXT
@@ -450,8 +666,7 @@ class LibrarySystem:
                     location TEXT,
                     description TEXT,
                     rating REAL,
-                    cover_front_path TEXT,
-                    cover_back_path TEXT,
+                    avatar_book TEXT,
                     file_content_path TEXT
                 )
                 '''
@@ -494,9 +709,13 @@ class LibrarySystem:
                     record = json_line_decode(line)
                     user = self.create_user_instance(
                         record['username'],
-                        bytes.fromhex(record['password_hash']),
-                        bytes.fromhex(record['salt']),
+                        bytes.fromhex(record['password_hash']) + bytes.fromhex(record['salt']),
                         record['role'],
+                        record.get('full_name', record.get('name', '')),
+                        record.get('birth_date', ''),
+                        record.get('phone', ''),
+                        record.get('address', ''),
+                        record.get('city', ''),
                         record.get('encrypted_personal_data', ''),
                         record.get('failed_attempts', 0),
                         record.get('lockout_until', None),
@@ -572,18 +791,33 @@ class LibrarySystem:
             return
 
         conn = self.connect_db()
+        existing_tables = {row['name'] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        required_tables = {'users', 'books', 'reviews', 'reservations'}
+        if not required_tables.issubset(existing_tables):
+            conn.close()
+            self.initialize_database()
+            self._seed_sample_books()
+            return
+
+        self._migrate_user_schema(conn)
+        self._migrate_book_schema(conn)
         with conn:
             for row in conn.execute('SELECT * FROM users'):
+                email = row['email'] if 'email' in row.keys() else row['username']
                 user = self.create_user_instance(
-                    row['username'],
+                    email,
                     row['password_hash'],
-                    row['salt'],
-                    row['role'],
-                    row['encrypted_personal_data'] or '',
-                    row['failed_attempts'],
-                    row['lockout_until'],
+                    row['role'] if 'role' in row.keys() else 'client',
+                    row['full_name'] if 'full_name' in row.keys() else '',
+                    row['birth_date'] if 'birth_date' in row.keys() else '',
+                    row['phone'] if 'phone' in row.keys() else '',
+                    row['address'] if 'address' in row.keys() else '',
+                    row['city'] if 'city' in row.keys() else '',
+                    row['encrypted_personal_data'] if 'encrypted_personal_data' in row.keys() else '' or '',
+                    row['failed_attempts'] if 'failed_attempts' in row.keys() else 0,
+                    row['lockout_until'] if 'lockout_until' in row.keys() else None,
                 )
-                self.users[row['username']] = user
+                self.users[email] = user
 
             for row in conn.execute('SELECT * FROM books'):
                 book = self.create_book_instance(dict(row))
@@ -602,38 +836,39 @@ class LibrarySystem:
         conn.close()
 
         self.cleanup_expired_reservations()
-        if not self.books:
-            self._seed_sample_books()
+        self.initialize_default_books()
 
     def initialize_default_users(self):
         """Create default Admin and AdvancedUser if they don't exist."""
         # Create Admin if doesn't exist
-        if 'admin' not in self.users:
+        admin_email = 'admin@library.com'
+        if admin_email not in self.users:
             admin_data = {
-                'email': 'admin@library.com',
-                'name': 'Administrator',
+                'email': admin_email,
+                'full_name': 'Administrator',
                 'phone': '',
                 'address': 'Library'
             }
-            admin = User.create_user('admin@library.com', 'admin123', 'admin', admin_data)
+            admin = User.create_user(admin_email, 'admin123', 'admin', admin_data)
             admin.register(self)
-            print("[Init] Administrator created: admin / admin123")
+            print("[Init] Administrator created: admin@library.com / admin123")
         
-        # Create AdvancedUser if doesn't exist
-        if 'advanced_user' not in self.users:
+        advanced_email = 'advanced@library.com'
+        if advanced_email not in self.users:
             advanced_data = {
-                'email': 'advanced@library.com',
-                'name': 'Advanced User',
+                'email': advanced_email,
+                'full_name': 'Advanced User',
                 'phone': '',
                 'address': 'Library'
             }
-            advanced = User.create_user('advanced@library.com', 'advanced123', 'advanced', advanced_data)
+            advanced = User.create_user(advanced_email, 'advanced123', 'advanced', advanced_data)
             advanced.register(self)
             print("[Init] Advanced User created: advanced@library.com / advanced123")
 
     def save_data(self):
         self.initialize_database()
         conn = self.connect_db()
+        self._migrate_book_schema(conn)
         with conn:
             conn.execute('DELETE FROM reservations')
             conn.execute('DELETE FROM reviews')
@@ -643,14 +878,18 @@ class LibrarySystem:
             for user in self.users.values():
                 conn.execute(
                     '''
-                    INSERT INTO users (username, password_hash, salt, role, encrypted_personal_data, failed_attempts, lockout_until)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO users (email, password_hash, role, full_name, birth_date, phone, address, city, encrypted_personal_data, failed_attempts, lockout_until)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''',
                     (
                         user.username,
-                        sqlite3.Binary(user.password_hash),
-                        sqlite3.Binary(user.salt),
+                        sqlite3.Binary(self._combine_password_blob(user.password_hash, user.salt)),
                         user.role,
+                        user.get_personal_data(self.aes_key).get('full_name', ''),
+                        user.get_personal_data(self.aes_key).get('birth_date', ''),
+                        user.get_personal_data(self.aes_key).get('phone', ''),
+                        user.get_personal_data(self.aes_key).get('address', ''),
+                        user.get_personal_data(self.aes_key).get('city', ''),
                         user.encrypted_personal_data,
                         user.failed_attempts,
                         user.lockout_until,
@@ -660,8 +899,8 @@ class LibrarySystem:
             for book in self.books.values():
                 conn.execute(
                     '''
-                    INSERT INTO books (id, title, author, genre, year, total_copies, available_copies, location, description, rating, cover_front_path, cover_back_path, file_content_path)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO books (id, title, author, genre, year, total_copies, available_copies, location, description, rating, avatar_book, file_content_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''',
                     (
                         book.id,
@@ -674,8 +913,7 @@ class LibrarySystem:
                         book.location,
                         book.description,
                         book.rating,
-                        book.cover_front_path,
-                        book.cover_back_path,
+                        getattr(book, 'avatar_book', None) or getattr(book, 'cover_front_path', None) or getattr(book, 'cover_back_path', None),
                         book.file_content_path,
                     ),
                 )
@@ -721,7 +959,8 @@ class LibrarySystem:
             with open(key_path, 'w', encoding='utf-8') as f:
                 f.write(self.aes_key)
 
-    def create_user_instance(self, username, password_hash, salt, role, encrypted_personal_data, failed_attempts=0, lockout_until=None):
+    def create_user_instance(self, username, password_blob, role, full_name, birth_date, phone, address, city, encrypted_personal_data, failed_attempts=0, lockout_until=None):
+        password_hash, salt = self._split_password_blob(password_blob)
         if role == 'admin':
             user = Admin(username, password_hash, salt, role, encrypted_personal_data)
         elif role == 'advanced':
@@ -730,7 +969,32 @@ class LibrarySystem:
             user = Client(username, password_hash, salt, role, encrypted_personal_data)
         else:
             user = User(username, password_hash, salt, role, encrypted_personal_data)
-        user.set_encryption_key(self.aes_key)
+        try:
+            user.set_encryption_key(self.aes_key)
+            if encrypted_personal_data:
+                user.profile_data = user.get_personal_data(self.aes_key)
+        except Exception:
+            user.profile_data = {
+                'email': username,
+                'full_name': full_name,
+                'birth_date': birth_date,
+                'phone': phone,
+                'address': address,
+                'city': city,
+                'favorites': [],
+                'profile_picture_path': 'No image selected',
+            }
+        if not user.profile_data:
+            user.profile_data = {
+                'email': username,
+                'full_name': full_name,
+                'birth_date': birth_date,
+                'phone': phone,
+                'address': address,
+                'city': city,
+                'favorites': [],
+                'profile_picture_path': 'No image selected',
+            }
         user.failed_attempts = int(failed_attempts or 0)
         user.lockout_until = lockout_until
         return user
@@ -738,8 +1002,8 @@ class LibrarySystem:
     def create_book_instance(self, record):
         return Book.from_record(record)
 
-    def _seed_sample_books(self):
-        sample_books = [
+    def _get_sample_books(self):
+        return [
             Book('1', 'The Lord of the Rings', 'J.R.R. Tolkien', 'fantasy', 1954, 5, 5, 'Lviv Central Branch', 'Epic fantasy adventure in Middle-earth.', 4.8),
             Book('2', 'The Hobbit', 'J.R.R. Tolkien', 'fantasy', 1937, 4, 4, 'Lviv Central Branch', 'A hobbit\'s unexpected journey.', 4.7),
             Book('3', 'Harry Potter and the Philosopher\'s Stone', 'J.K. Rowling', 'fantasy', 1997, 6, 6, 'West Branch', 'A young wizard\'s first year at Hogwarts.', 4.9),
@@ -805,14 +1069,60 @@ class LibrarySystem:
             Book('58', 'The Alignment Problem', 'Brian Christian', 'tech', 2020, 3, 3, 'North Branch', 'Machine learning and human values.', 4.5),
             Book('59', 'The Phoenix Project', 'Gene Kim', 'tech', 2013, 4, 4, 'South Branch', 'A novel about DevOps and IT management.', 4.4),
             Book('60', 'Clean Code', 'Robert C. Martin', 'tech', 2008, 3, 3, 'East Branch', 'A handbook of agile software craftsmanship.', 4.7),
+            Book('61', 'Ready Player One', 'Ernest Cline', 'science fiction', 2011, 4, 4, 'Digital Branch', 'A virtual treasure hunt in a dystopian future.', 4.3),
+            Book('62', 'The Martian', 'Andy Weir', 'science fiction', 2011, 5, 5, 'Mars Branch', 'A stranded astronaut fights to survive on Mars.', 4.7),
+            Book('63', 'The Silent Patient', 'Alex Michaelides', 'thriller', 2019, 3, 3, 'Top Branch', 'A psychotherapist tries to unlock a silent patient’s secret.', 4.1),
+            Book('64', 'The Goldfinch', 'Donna Tartt', 'drama', 2013, 4, 4, 'Art Branch', 'A boy is drawn into the world of art and crime after tragedy.', 4.2),
+            Book('65', 'Dune', 'Frank Herbert', 'science fiction', 1965, 5, 5, 'Spice Branch', 'Power and prophecy on the desert planet Arrakis.', 4.6),
+            Book('66', 'The Night Circus', 'Erin Morgenstern', 'fantasy', 2011, 4, 4, 'Circus Branch', 'A magical competition inside a wandering circus.', 4.5),
+            Book('67', 'Educated', 'Tara Westover', 'memoir', 2018, 4, 4, 'Memory Branch', 'A memoir of growing up isolated and pursuing education.', 4.5),
+            Book('68', 'Becoming', 'Michelle Obama', 'biography', 2018, 4, 4, 'Leadership Branch', 'The former First Lady’s journey through life and politics.', 4.6),
+            Book('69', 'Atomic Habits', 'James Clear', 'self-help', 2018, 5, 5, 'Growth Branch', 'Small changes lead to remarkable results.', 4.8),
+            Book('70', 'The Subtle Art of Not Giving a F*ck', 'Mark Manson', 'self-help', 2016, 4, 4, 'Bold Branch', 'A counterintuitive approach to living a good life.', 4.1),
+            Book('71', 'The Alchemist', 'Paulo Coelho', 'fantasy', 1988, 5, 5, 'Pilgrim Branch', 'A shepherd pursues his personal legend across the desert.', 4.4),
+            Book('72', 'Shoe Dog', 'Phil Knight', 'biography', 2016, 3, 3, 'Business Branch', 'The story behind the creation of Nike.', 4.3),
+            Book('73', 'The Design of Everyday Things', 'Don Norman', 'design', 1988, 4, 4, 'Design Branch', 'How good design makes products easy to use.', 4.7),
+            Book('74', 'This Is Marketing', 'Seth Godin', 'business', 2018, 3, 3, 'Marketing Branch', 'Marketing that matters to people and builds trust.', 4.2),
+            Book('75', 'The Little Prince', 'Antoine de Saint-Exupéry', 'drama', 1943, 6, 6, 'Children Branch', 'A poetic tale about a young prince and an aviator.', 4.9),
+            
+            Book('76', 'Carrie', 'Stephen King', 'horror', 1974, 4, 4, 'Night Branch', 'A bullied teenage girl discovers terrifying telekinetic powers.', 4.3),
+            Book('77', 'The Shining', 'Stephen King', 'horror', 1977, 3, 3, 'Mountain Branch', 'A winter caretaker slowly loses his mind in an isolated hotel.', 4.4),
+            Book('78', 'IT', 'Stephen King', 'horror', 1986, 5, 5, 'City Branch', 'A group of children face an ancient evil in their town.', 4.5),
+            Book('79', 'Misery', 'Stephen King', 'horror', 1987, 3, 3, 'Hospital Branch', 'A novelist is held captive by his number-one fan.', 4.2),
+            Book('80', 'The Stand', 'Stephen King', 'horror', 1978, 4, 4, 'Survivor Branch', 'A post-apocalyptic battle between good and evil.', 4.6),
+            Book('81', 'The Green Mile', 'Stephen King', 'drama', 1996, 4, 4, 'Penitentiary Branch', 'A death row guard witnesses miracles from an inmate.', 4.7),
+            
+            Book('82', 'Angels & Demons', 'Dan Brown', 'thriller', 2000, 4, 4, 'Vatican Branch', 'Robert Langdon uncovers a secret society conspiracy.', 4.3),
+            Book('83', 'The Da Vinci Code', 'Dan Brown', 'thriller', 2003, 5, 5, 'Museum Branch', 'A symbologist hunts for a secret hidden in a masterpiece.', 4.1),
+            Book('84', 'Inferno', 'Dan Brown', 'thriller', 2013, 3, 3, 'Florence Branch', 'A deadly plot is hidden inside Dante’s Inferno.', 4.0),
+            Book('85', 'Origin', 'Dan Brown', 'thriller', 2017, 4, 4, 'Tech Branch', 'A futurist revelation shakes the foundations of religion.', 4.0),
+            Book('86', 'Deception Point', 'Dan Brown', 'thriller', 2001, 3, 3, 'NASA Branch', 'A satellite discovery triggers a political conspiracy.', 4.1),
+            
+            Book('87', 'The Adventures of Tom Sawyer', 'Mark Twain', 'drama', 1876, 5, 5, 'River Branch', 'A mischievous boy grows up on the Mississippi River.', 4.4),
+            Book('88', 'Adventures of Huckleberry Finn', 'Mark Twain', 'drama', 1884, 4, 4, 'River Branch', 'A runaway boy and a freed slave travel down the Mississippi.', 4.5),
+            Book('89', 'A Connecticut Yankee in King Arthur’s Court', 'Mark Twain', 'fantasy', 1889, 3, 3, 'Time Branch', 'A 19th-century engineer wakes up in Arthurian England.', 4.2),
+            Book('90', 'The Prince and the Pauper', 'Mark Twain', 'drama', 1881, 4, 4, 'Royal Branch', 'Two boys swap lives in Tudor England.', 4.3),
         ]
         
         for book in sample_books:
             safe_genre = book.genre.replace(' ', '_').lower()
-            book.cover_path = f'assets/covers/{safe_genre}_{book.id}.jpg'
+            book.avatar_book = f'assets/covers/{safe_genre}_{book.id}.jpg'
             book.file_content_path = f'assets/library/{safe_genre}_{book.id}.txt'
             self.books[book.id] = book
         self.save_data()
+
+    def initialize_default_books(self):
+        sample_books = self._get_sample_books()
+        added = False
+        for book in sample_books:
+            if book.id not in self.books:
+                safe_genre = book.genre.replace(' ', '_').lower()
+                book.avatar_book = f'assets/covers/{safe_genre}_{book.id}.jpg'
+                book.file_content_path = f'assets/library/{safe_genre}_{book.id}.txt'
+                self.books[book.id] = book
+                added = True
+        if added:
+            self.save_data()
 
     def compute_checksum(self, entry_text):
         return hashlib.sha256(entry_text.encode()).hexdigest()
@@ -956,9 +1266,29 @@ class LibrarySystem:
         self.log_operation('password_reset', {'username': username, 'result': 'SUCCESS'})
 
     def add_book(self, book):
+        if book.id in self.books:
+            raise ValueError('Book with this ID already exists')
         self.books[book.id] = book
         self.save_data()
         self.log_operation('book_added', book.to_record())
+
+    def update_book(self, book_id, **data):
+        book = self.books.get(book_id)
+        if not book:
+            raise ValueError('Book not found')
+        for field, value in data.items():
+            if hasattr(book, field) and field != 'id':
+                setattr(book, field, value)
+        self.save_data()
+        self.log_operation('book_updated', {'book_id': book_id, **data})
+        return book
+
+    def delete_book(self, book_id):
+        if book_id not in self.books:
+            raise ValueError('Book not found')
+        removed = self.books.pop(book_id)
+        self.save_data()
+        self.log_operation('book_deleted', {'book_id': book_id, 'title': removed.title})
 
     def recover_from_log(self):
         self.users = {}
@@ -996,7 +1326,7 @@ class LibrarySystem:
                     if username and username not in self.users:
                         personal_data = {
                             'email': username,
-                            'name': details.get('name', username),
+                            'full_name': details.get('full_name') or details.get('name') or username,
                             'phone': '',
                             'address': '',
                             'favorites': [],
@@ -1066,7 +1396,7 @@ class LibrarySystem:
         if username not in self.users:
             personal_data = {
                 'email': email,
-                'name': account['name'],
+                'full_name': account['name'],
                 'phone': '',
                 'address': '',
                 'favorites': [],

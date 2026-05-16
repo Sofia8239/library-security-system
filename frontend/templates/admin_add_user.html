@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-card auth-card">
+  <h1>Додати користувача</h1>
+  <form method="post" class="auth-form">
+    <label>ПІБ</label>
+    <input type="text" name="full_name" required>
+
+    <label>Електронна пошта</label>
+    <input type="email" name="email" required>
+
+    <label>Пароль</label>
+    <input type="password" name="password" required>
+
+    <label>Роль</label>
+    <select name="role">
+      <option value="client">User</option>
+      <option value="advanced">Advanced user</option>
+      <option value="admin">Administrator</option>
+    </select>
+
+    <label>Телефон</label>
+    <input type="tel" name="phone">
+
+    <label>Дата народження</label>
+    <input type="date" name="birth_date">
+
+    <label>Місто</label>
+    <input type="text" name="city">
+
+    <label>Адреса</label>
+    <input type="text" name="address">
+
+    <button type="submit">Створити</button>
+  </form>
+  <p><a href="{{ url_for('admin_users') }}">Повернутися до списку</a></p>
+</div>
+{% endblock %}

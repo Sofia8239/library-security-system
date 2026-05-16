@@ -40,6 +40,17 @@
       <div class="nav-icon">👤</div>
       <span class="nav-text">Профіль</span>
     </a>
+    {% if user.role == 'advanced' %}
+    <a href="{{ url_for('users_list') }}" class="nav-item {% if request.endpoint == 'users_list' %}active{% endif %}">
+      <div class="nav-icon">👥</div>
+      <span class="nav-text">Користувачі</span>
+    </a>
+    {% elif user.role == 'admin' %}
+    <a href="{{ url_for('admin_books') }}" class="nav-item {% if request.endpoint.startswith('admin_') %}active{% endif %}">
+      <div class="nav-icon">🛠️</div>
+      <span class="nav-text">Адмін</span>
+    </a>
+    {% endif %}
   </nav>
   {% endif %}
 
