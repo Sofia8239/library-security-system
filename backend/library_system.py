@@ -1124,6 +1124,14 @@ class LibrarySystem:
         if added:
             self.save_data()
 
+    def _seed_sample_books(self):
+        """Backward-compatible seeding helper used during initial load."""
+        self.initialize_default_books()
+        try:
+            self.initialize_default_users()
+        except Exception:
+            pass
+
     def compute_checksum(self, entry_text):
         return hashlib.sha256(entry_text.encode()).hexdigest()
 
@@ -1187,17 +1195,42 @@ class LibrarySystem:
         return sum(review.rating for review in reviews) / len(reviews)
 
     def cleanup_expired_reservations(self):
-        expired = [reservation for reservation in self.reservations if not reservation.is_active()]
-        for reservation in expired:
-            book = self.books.get(reservation.book_id)
-            if book:
-                book.available_copies = min(book.total_copies, book.available_copies + 1)
-            self.reservations.remove(reservation)
-        if expired:
-            self.save_data()
+        # Do not auto-return books when expiry passes.
+        # Keep expired reservations in the list so they can be returned manually.
+        return
 
-    def reserve_book(self, user_id, book_id):
-        return self.reservation_system.reserve_book(user_id, book_id)
+    def return_reservation(self, username, reservation_id=None, book_id=None):
+        # Return a reservation (manual return). Matches by reservation_id or book_id for the user.
+        target = None
+        for r in list(self.reservations):
+            if r.username != username:
+                continue
+            if reservation_id and r.reservation_id == reservation_id:
+                target = r
+                break
+            if book_id and r.book_id == book_id:
+                target = r
+                break
+        if not target:
+            raise ValueError('Reservation not found')
+        book = self.books.get(target.book_id)
+        if book:
+            book.available_copies = min(book.total_copies, book.available_copies + 1)
+        self.reservations.remove(target)
+        self.save_data()
+        self.log_operation('reservation_returned', target.to_record())
+        return True
+
+    def reserve_book(self, user_id, book_id, duration=1, unit='days'):
+        """Reserve or borrow a book.
+
+        Parameters:
+        - user_id: username/email
+        - book_id: book identifier
+        - duration: integer duration (default 1)
+        - unit: 'days' or 'minutes' or 'hours' (default 'days')
+        """
+        return self.reservation_system.reserve_book(user_id, book_id, duration=duration, unit=unit)
 
     def get_active_reservations(self, username):
         return self.reservation_system.get_active_reservations(username)
@@ -1427,7 +1460,12 @@ class ReservationSystem:
             if not any(r.reservation_id == token for r in self.library.reservations):
                 return token
 
-    def reserve_book(self, user_id, book_id):
+    def reserve_book(self, user_id, book_id, duration=1, unit='days'):
+        """Reserve a book for a given duration.
+
+        `duration` and `unit` control how long the reservation lasts.
+        Unit can be 'days', 'hours', or 'minutes'.
+        """
         user = self.library.users.get(user_id)
         if not user:
             raise ValueError('User not found')
@@ -1440,8 +1478,21 @@ class ReservationSystem:
             raise ValueError('Book is not available for reservation')
 
         reservation_id = self.generate_unique_reservation_id()
-        start_time = datetime.datetime.now().isoformat()
-        expiry_time = (datetime.datetime.now() + datetime.timedelta(hours=1)).isoformat()
+        start_dt = datetime.datetime.now()
+        try:
+            dur = int(duration)
+        except Exception:
+            dur = 1
+        unit_l = (unit or 'days').lower()
+        if unit_l == 'minutes':
+            expiry_dt = start_dt + datetime.timedelta(minutes=dur)
+        elif unit_l == 'hours':
+            expiry_dt = start_dt + datetime.timedelta(hours=dur)
+        else:
+            expiry_dt = start_dt + datetime.timedelta(days=dur)
+
+        start_time = start_dt.isoformat()
+        expiry_time = expiry_dt.isoformat()
         reservation = Reservation(user_id, book_id, book.title, start_time, expiry_time, reservation_id)
         self.library.reservations.append(reservation)
         book.available_copies -= 1

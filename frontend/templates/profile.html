@@ -54,16 +54,22 @@
     <h2>Мої бронювання</h2>
     {% if reservations %}
       {% for reservation in reservations %}
-        <div class="reservation-ticket">
+        {% set expired = not reservation.is_active() %}
+        <div class="reservation-ticket {% if expired %}overdue{% endif %}">
           <div class="ticket-info">
             <h3>{{ reservation.book_title }}</h3>
             <p class="ticket-code gold-font">{{ reservation.reservation_id }}</p>
           </div>
           <div class="ticket-timer" data-expiry="{{ reservation.expiry_time }}">{{ reservation.time_remaining().total_seconds() // 3600 }}:{{ '%02d' % ((reservation.time_remaining().total_seconds() % 3600) // 60) }}:{{ '%02d' % (reservation.time_remaining().total_seconds() % 60) }}</div>
+          <div class="ticket-actions">
+            <form method="post" action="{{ url_for('return_reservation', reservation_id=reservation.reservation_id) }}" class="return-form">
+              <button type="submit" class="gold-button">Повернути</button>
+            </form>
+          </div>
         </div>
       {% endfor %}
     {% else %}
-      <p>Активних бронювань немає.</p>
+      <p>Бронювань немає.</p>
     {% endif %}
   </section>
 
@@ -138,16 +144,24 @@ window.onclick = function(event) {
 
 // Update countdown timers
 function updateTimers() {
-  document.querySelectorAll('.ticket-timer').forEach(timer => {
+    document.querySelectorAll('.ticket-timer').forEach(timer => {
     const expiry = new Date(timer.dataset.expiry);
     const now = new Date();
-    const remaining = Math.max(0, expiry - now);
-    const hours = Math.floor(remaining / (1000 * 60 * 60));
-    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-    timer.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    if (remaining <= 0) {
-      timer.closest('.reservation-ticket').remove();
+    const diff = expiry - now;
+    if (diff >= 0) {
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      timer.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      timer.closest('.reservation-ticket').classList.remove('overdue');
+    } else {
+      // overdue: show positive elapsed time
+      const overdue = Math.abs(diff);
+      const hours = Math.floor(overdue / (1000 * 60 * 60));
+      const minutes = Math.floor((overdue % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((overdue % (1000 * 60)) / 1000);
+      timer.textContent = `+${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      timer.closest('.reservation-ticket').classList.add('overdue');
     }
   });
 }
@@ -192,6 +206,15 @@ document.getElementById('delete-avatar-btn').addEventListener('click', function(
       }
     });
   }
+});
+
+// Confirm before returning a reservation
+document.querySelectorAll('.return-form').forEach(form => {
+  form.addEventListener('submit', function(e) {
+    if (!confirm('Підтвердити повернення книги?')) {
+      e.preventDefault();
+    }
+  });
 });
 </script>
 {% endblock %}

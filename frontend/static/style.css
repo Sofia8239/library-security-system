@@ -585,6 +585,15 @@ body {
   align-items: center;
 }
 
+/* Overdue reservation highlight */
+.reservation-ticket.overdue {
+  border-color: #ff4d4f;
+  box-shadow: 0 6px 18px rgba(255, 77, 79, 0.12);
+}
+.reservation-ticket.overdue .ticket-timer {
+  color: #ff4d4f;
+}
+
 .ticket-info h3 {
   margin: 0;
   color: var(--text-light);

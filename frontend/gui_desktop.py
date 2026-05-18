@@ -405,7 +405,7 @@ class LibraryGUI:
 
         controls = tk.Frame(content, bg='#2A1D15')
         controls.grid(row=8, column=0, columnspan=2, pady=(20, 5))
-        tk.Button(controls, text='Reserve (1hr)', command=lambda: self.reserve_book(detail_window, book), bg='#D4AF37', fg='#2A1D15').pack(side='left', padx=5)
+        tk.Button(controls, text='Reserve', command=lambda: self.reserve_book_with_duration(detail_window, book), bg='#D4AF37', fg='#2A1D15').pack(side='left', padx=5)
         tk.Button(controls, text='Open Preview', command=lambda: self.open_book_preview(book), bg='#A8866E', fg='#2A1A1A').pack(side='left', padx=5)
         fav_label = 'Remove from Favorites' if self.current_user.has_favorite(book.id) else 'Add to Favorites'
         tk.Button(controls, text=fav_label, command=lambda: self.toggle_favorite(book), bg='#A8866E', fg='#2A1A1A').pack(side='left', padx=5)
@@ -441,6 +441,26 @@ class LibraryGUI:
     def reserve_book(self, window, book):
         try:
             reservation = self.library.reserve_book(self.current_user.username, book.id)
+            window.destroy()
+            self.update_book_list()
+            self.show_reservation_modal(reservation)
+        except Exception as e:
+            messagebox.showerror('Error', str(e))
+
+    def reserve_book_with_duration(self, window, book):
+        # Ask user for duration and unit
+        try:
+            dur = simpledialog.askinteger('Reservation Duration', 'Enter duration (integer):', minvalue=1)
+            if not dur:
+                return
+            unit = simpledialog.askstring('Duration Unit', 'Enter unit (days, hours, minutes):', initialvalue='days')
+            if not unit:
+                unit = 'days'
+            unit = unit.strip().lower()
+            if unit not in {'days', 'hours', 'minutes'}:
+                messagebox.showerror('Error', 'Invalid unit. Use days, hours or minutes.')
+                return
+            reservation = self.library.reserve_book(self.current_user.username, book.id, duration=dur, unit=unit)
             window.destroy()
             self.update_book_list()
             self.show_reservation_modal(reservation)

@@ -204,7 +204,8 @@ def favorites():
 def profile():
     user = current_user()
     profile_data = user.get_personal_data(library.aes_key)
-    reservations = library.get_active_reservations(user.username)
+    # Show all reservations (active and expired) so user can return them manually
+    reservations = [r for r in library.reservations if r.username == user.username]
 
     if request.method == 'POST':
         # Determine if this is profile update or password change
@@ -503,18 +504,34 @@ def book_detail(book_id):
     )
 
 
-@app.route('/reserve/<book_id>')
+@app.route('/reserve/<book_id>', methods=['GET', 'POST'])
 @login_required
 def reserve(book_id):
     user = current_user()
-    try:
-        reservation = library.reserve_book(user.username, book_id)
-        flash('Книга заброньована', 'success')
-        # Instead of redirect, show confirmation with timer
-        return render_template('reserve_success.html', reservation=reservation, user=user, resolve_asset_url=resolve_asset_url)
-    except Exception as exc:
-        flash(str(exc), 'danger')
-        return redirect(request.referrer or url_for('home'))
+    if request.method == 'POST':
+        duration = request.form.get('duration', '1')
+        unit = request.form.get('unit', 'days')
+        try:
+            duration_val = int(duration)
+        except Exception:
+            duration_val = 1
+        unit_val = (unit or 'days').lower()
+        try:
+            reservation = library.reserve_book(user.username, book_id, duration=duration_val, unit=unit_val)
+            flash('Книга заброньована', 'success')
+            return render_template('reserve_success.html', reservation=reservation, user=user, resolve_asset_url=resolve_asset_url)
+        except Exception as exc:
+            flash(str(exc), 'danger')
+            return redirect(request.referrer or url_for('home'))
+    else:
+        # Maintain backward compatibility: allow GET to create a default reservation
+        try:
+            reservation = library.reserve_book(user.username, book_id)
+            flash('Книга заброньована', 'success')
+            return render_template('reserve_success.html', reservation=reservation, user=user, resolve_asset_url=resolve_asset_url)
+        except Exception as exc:
+            flash(str(exc), 'danger')
+            return redirect(request.referrer or url_for('home'))
 
 
 @app.route('/favorite/<book_id>', methods=['POST'])
@@ -614,6 +631,18 @@ def gdpr_wipe():
     except Exception as exc:
         flash(str(exc), 'danger')
         return redirect(url_for('profile'))
+
+
+@app.route('/return/<reservation_id>', methods=['POST'])
+@login_required
+def return_reservation(reservation_id):
+    user = current_user()
+    try:
+        library.return_reservation(user.username, reservation_id=reservation_id)
+        flash('Книга повернена', 'success')
+    except Exception as exc:
+        flash(str(exc), 'danger')
+    return redirect(url_for('profile'))
 
 
 if __name__ == '__main__':

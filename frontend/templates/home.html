@@ -43,7 +43,7 @@
           <div class="actions">
             <a class="button tertiary" href="{{ url_for('book_detail', book_id=book.id) }}">Деталі</a>
             {% if book.available %}
-              <a class="button" href="{{ url_for('reserve', book_id=book.id) }}">Забронювати</a>
+              <button class="button reserve-open-btn" data-book-id="{{ book.id }}" data-book-title="{{ book.title|e }}">Забронювати</button>
             {% endif %}
           </div>
         </div>
@@ -51,6 +51,28 @@
     {% else %}
       <p>Книг не знайдено.</p>
     {% endfor %}
+  </div>
+</div>
+
+<!-- Reserve Modal -->
+<div id="reserve-modal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h2 id="reserve-modal-title">Забронювати книгу</h2>
+    <form id="reserve-modal-form" method="post" action="">
+      <div style="margin-bottom:8px"><strong id="reserve-book-title"></strong></div>
+      <label>Тривалість</label>
+      <input type="number" name="duration" value="1" min="1" style="width:70px; margin-right:8px;" />
+      <select name="unit">
+        <option value="days">days</option>
+        <option value="hours">hours</option>
+        <option value="minutes">minutes</option>
+      </select>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button type="submit" class="gold-button">Підтвердити бронювання</button>
+        <button type="button" id="reserve-cancel" class="button tertiary">Скасувати</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -79,6 +101,27 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   });
+
+  // Reserve modal logic
+  const modal = document.getElementById('reserve-modal');
+  const modalForm = document.getElementById('reserve-modal-form');
+  const modalTitle = document.getElementById('reserve-book-title');
+  const closeEls = document.querySelectorAll('#reserve-modal .close');
+  const cancelBtn = document.getElementById('reserve-cancel');
+
+  document.querySelectorAll('.reserve-open-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      const id = this.dataset.bookId;
+      const title = this.dataset.bookTitle || '';
+      modalForm.action = `/reserve/${id}`;
+      modalTitle.textContent = title;
+      modal.style.display = 'block';
+    });
+  });
+
+  closeEls.forEach(el => el.addEventListener('click', () => modal.style.display = 'none'));
+  cancelBtn.addEventListener('click', () => modal.style.display = 'none');
+  window.addEventListener('click', function(event) { if (event.target === modal) modal.style.display = 'none'; });
 });
 </script>
 {% endblock %}

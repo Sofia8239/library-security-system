@@ -25,7 +25,16 @@
       <p><strong>Рейтинг:</strong> {{ rating|round(1) }}</p>
       <div class="actions">
         {% if book.available %}
-          <a class="button" href="{{ url_for('reserve', book_id=book.id) }}">Забронювати</a>
+          <form method="post" action="{{ url_for('reserve', book_id=book.id) }}" class="reserve-form" style="display:inline-block;">
+            <label style="margin-right:6px">Тривалість</label>
+            <input type="number" name="duration" value="1" min="1" style="width:70px;" />
+            <select name="unit" style="margin-left:6px;">
+              <option value="days">days</option>
+              <option value="hours">hours</option>
+              <option value="minutes">minutes</option>
+            </select>
+            <button type="submit" class="button">Забронювати</button>
+          </form>
         {% endif %}
         <a class="button tertiary" href="{{ url_for('toggle_favorite', book_id=book.id) }}">{{ 'Видалити з обраного' if user.has_favorite(book.id) else 'Обране' }}</a>
       </div>
