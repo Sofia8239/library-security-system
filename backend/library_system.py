@@ -251,10 +251,24 @@ class Admin(User):
     def view_all_users(self, library):
         if self.role != 'admin':
             raise PermissionError('Access denied')
-        # Return sanitized user info (no personal data)
+        # Return sanitized user info with reservations
         result = {}
         for uname, user in library.users.items():
-            result[uname] = user.get_public_info()
+            user_info = user.get_public_info()
+            # Add reservations for this user
+            user_reservations = [r for r in library.reservations if r.username == uname]
+            reservations_info = []
+            for res in user_reservations:
+                is_overdue = datetime.datetime.fromisoformat(res.expiry_time) < datetime.datetime.now()
+                reservations_info.append({
+                    'book_title': res.book_title,
+                    'book_id': res.book_id,
+                    'expiry_time': res.expiry_time,
+                    'is_overdue': is_overdue,
+                    'reservation_id': res.reservation_id,
+                })
+            user_info['reservations'] = reservations_info
+            result[uname] = user_info
         return result
 
     def add_user(self, library, user):
@@ -284,9 +298,24 @@ class AdvancedUser(User):
     def view_all_users(self, library):
         if self.role != 'advanced':
             raise PermissionError('Access denied')
+        # Return sanitized user info with reservations
         result = {}
         for uname, user in library.users.items():
-            result[uname] = user.get_public_info()
+            user_info = user.get_public_info()
+            # Add reservations for this user
+            user_reservations = [r for r in library.reservations if r.username == uname]
+            reservations_info = []
+            for res in user_reservations:
+                is_overdue = datetime.datetime.fromisoformat(res.expiry_time) < datetime.datetime.now()
+                reservations_info.append({
+                    'book_title': res.book_title,
+                    'book_id': res.book_id,
+                    'expiry_time': res.expiry_time,
+                    'is_overdue': is_overdue,
+                    'reservation_id': res.reservation_id,
+                })
+            user_info['reservations'] = reservations_info
+            result[uname] = user_info
         return result
 
     def send_reminder(self, username, message):

@@ -2,20 +2,8 @@
 {% block content %}
 <div class="page-card book-detail-card">
   <div class="detail-header">
-    <div class="flip-card">
-      <div class="flip-card-inner">
-        <div class="flip-card-front" style="background-image:url('{{ resolve_asset_url(book.avatar_book) }}')"></div>
-        <div class="flip-card-back" style="background-image:url('{{ resolve_asset_url(book.avatar_book) }}')">
-          <div class="back-content">
-            <h3>Технічні дані</h3>
-            <p><strong>ISBN:</strong> {{ book.id }}</p>
-            <p><strong>Автор:</strong> {{ book.author }}</p>
-            <p><strong>Рік:</strong> {{ book.year }}</p>
-            <p><strong>Жанр:</strong> {{ book.genre }}</p>
-          </div>
-        </div>
-      </div>
-      <button class="flip-btn gold-button">Перевернути</button>
+    <div class="book-cover-container">
+      <div class="detail-cover" style="background-image:url('{{ resolve_asset_url(book.avatar_book) }}')"></div>
     </div>
     <div class="detail-info">
       <h1>{{ book.title }}</h1>
@@ -79,11 +67,4 @@
     </form>
   </section>
 </div>
-
-<script>
-document.querySelector('.flip-btn').addEventListener('click', function() {
-  const card = document.querySelector('.flip-card-inner');
-  card.classList.toggle('flipped');
-});
-</script>
 {% endblock %}

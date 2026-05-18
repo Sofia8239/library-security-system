@@ -8,27 +8,139 @@
     {% endif %}
     <a href="{{ url_for('admin_books') }}" class="outlined-btn">Книги</a>
   </p>
-  <table class="data-table">
-    <thead><tr><th>Email</th><th>Role</th><th>Favorites</th><th>Avatar</th><th>Дія</th></tr></thead>
-    <tbody>
-      {% for uname, info in users.items() %}
-      <tr>
-        <td>{{ uname }}</td>
-        <td>{{ info.role }}</td>
-        <td>{{ info.favorites_count }}</td>
-        <td><img src="{{ resolve_asset_url(info.profile_picture_path) }}" style="height:40px;"/></td>
-        <td>
+
+  <style>
+    .user-card {
+      border: 1px solid var(--card-border);
+      border-radius: var(--border-radius);
+      padding: 16px;
+      margin-bottom: 16px;
+      background: rgba(0,0,0,0.2);
+    }
+    .user-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .user-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center;
+    }
+    .user-meta {
+      flex: 1;
+    }
+    .user-meta h3 {
+      margin: 0;
+      color: var(--text-gold);
+    }
+    .user-meta p {
+      margin: 4px 0;
+      font-size: 14px;
+      color: var(--secondary-accent);
+    }
+    .reservations-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(212, 175, 55, 0.2);
+    }
+    .reservation-item {
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      border-left: 3px solid var(--text-gold);
+    }
+    .reservation-item.overdue {
+      border-left-color: #e74c3c;
+      background: rgba(231, 76, 60, 0.1);
+    }
+    .reservation-item h4 {
+      margin: 0 0 4px 0;
+      color: var(--text-gold);
+    }
+    .reservation-item.overdue h4 {
+      color: #e74c3c;
+    }
+    .reservation-detail {
+      font-size: 13px;
+      margin: 2px 0;
+      color: var(--text-light);
+    }
+    .overdue-badge {
+      display: inline-block;
+      background: #e74c3c;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 6px;
+    }
+    .no-reservations {
+      color: var(--secondary-accent);
+      font-style: italic;
+      font-size: 14px;
+    }
+    .user-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+  </style>
+
+  <div class="users-list">
+    {% for uname, info in users.items() %}
+    <div class="user-card">
+      <div class="user-header">
+        <div class="user-avatar" style="background-image:url('{{ resolve_asset_url(info.profile_picture_path) }}')"></div>
+        <div class="user-meta">
+          <h3>{{ uname }}</h3>
+          <p><strong>Роль:</strong> {{ info.role }}</p>
+          <p><strong>Обраних книг:</strong> {{ info.favorites_count }}</p>
+        </div>
+        <div class="user-actions">
           {% if is_admin %}
           <form method="post" action="{{ url_for('admin_delete_user', email=uname) }}" style="display:inline">
             <button type="submit" class="outlined-btn" onclick="return confirm('Видалити користувача?')">Видалити</button>
           </form>
-          {% else %}
-          <span>Перегляд</span>
           {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        </div>
+      </div>
+
+      {% if info.reservations %}
+      <div class="reservations-section">
+        <h4 style="margin: 0 0 10px 0; color: var(--text-gold);">📚 Забронійовані книги:</h4>
+        {% for res in info.reservations %}
+        <div class="reservation-item {% if res.is_overdue %}overdue{% endif %}">
+          <h4>
+            {{ res.book_title }}
+            {% if res.is_overdue %}
+            <span class="overdue-badge">ОВЕРДЮ</span>
+            {% endif %}
+          </h4>
+          <div class="reservation-detail"><strong>Книга ID:</strong> {{ res.book_id }}</div>
+          <div class="reservation-detail">
+            <strong>Дедлайн:</strong> 
+            {% if res.is_overdue %}
+              <span style="color: #e74c3c;">{{ res.expiry_time }}</span> ❌
+            {% else %}
+              <span style="color: #27ae60;">{{ res.expiry_time }}</span> ✓
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="reservations-section">
+        <p class="no-reservations">Немає забронійованих книг</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
 </div>
 {% endblock %}

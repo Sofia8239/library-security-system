@@ -956,6 +956,13 @@ body {
   flex-shrink: 0;
 }
 
+.book-cover-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  margin-right: 20px;
+}
+
 .detail-info {
   flex: 1;
 }
