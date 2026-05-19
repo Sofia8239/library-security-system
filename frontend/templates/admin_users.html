@@ -131,6 +131,15 @@
               <span style="color: #27ae60;">{{ res.expiry_time }}</span> ✓
             {% endif %}
           </div>
+          {% if is_advanced and res.is_overdue %}
+            {% if res.can_send_reminder %}
+            <form method="post" action="{{ url_for('send_reminder', username=uname, reservation_id=res.reservation_id) }}" style="margin-top:8px;">
+              <button type="submit" class="outlined-btn">Надіслати нагадування</button>
+            </form>
+            {% else %}
+              <div class="reservation-detail" style="color:var(--secondary-accent); font-size:13px; margin-top:8px;">Нагадування для цієї книги можна надсилати не частіше ніж раз на добу</div>
+            {% endif %}
+          {% endif %}
         </div>
         {% endfor %}
       </div>

@@ -260,12 +260,25 @@ class Admin(User):
             reservations_info = []
             for res in user_reservations:
                 is_overdue = datetime.datetime.fromisoformat(res.expiry_time) < datetime.datetime.now()
+                last_rem = getattr(res, 'last_reminder', None)
+                can_send = False
+                try:
+                    if is_overdue:
+                        if not last_rem:
+                            can_send = True
+                        else:
+                            last_dt = datetime.datetime.fromisoformat(last_rem)
+                            can_send = (datetime.datetime.now() - last_dt) >= datetime.timedelta(days=1)
+                except Exception:
+                    can_send = is_overdue
                 reservations_info.append({
                     'book_title': res.book_title,
                     'book_id': res.book_id,
                     'expiry_time': res.expiry_time,
                     'is_overdue': is_overdue,
                     'reservation_id': res.reservation_id,
+                    'last_reminder': last_rem,
+                    'can_send_reminder': can_send,
                 })
             user_info['reservations'] = reservations_info
             result[uname] = user_info
@@ -307,12 +320,25 @@ class AdvancedUser(User):
             reservations_info = []
             for res in user_reservations:
                 is_overdue = datetime.datetime.fromisoformat(res.expiry_time) < datetime.datetime.now()
+                last_rem = getattr(res, 'last_reminder', None)
+                can_send = False
+                try:
+                    if is_overdue:
+                        if not last_rem:
+                            can_send = True
+                        else:
+                            last_dt = datetime.datetime.fromisoformat(last_rem)
+                            can_send = (datetime.datetime.now() - last_dt) >= datetime.timedelta(days=1)
+                except Exception:
+                    can_send = is_overdue
                 reservations_info.append({
                     'book_title': res.book_title,
                     'book_id': res.book_id,
                     'expiry_time': res.expiry_time,
                     'is_overdue': is_overdue,
                     'reservation_id': res.reservation_id,
+                    'last_reminder': last_rem,
+                    'can_send_reminder': can_send,
                 })
             user_info['reservations'] = reservations_info
             result[uname] = user_info
@@ -448,6 +474,8 @@ class Reservation:
         self.start_time = start_time
         self.expiry_time = expiry_time
         self.reservation_id = reservation_id
+        # ISO timestamp of last reminder email sent (or None)
+        self.last_reminder = None
 
     def is_active(self):
         return datetime.datetime.fromisoformat(self.expiry_time) > datetime.datetime.now()
@@ -465,11 +493,12 @@ class Reservation:
             'start_time': self.start_time,
             'expiry_time': self.expiry_time,
             'reservation_id': self.reservation_id,
+            'last_reminder': getattr(self, 'last_reminder', None),
         }
 
     @classmethod
     def from_record(cls, data):
-        return cls(
+        inst = cls(
             data['username'],
             data['book_id'],
             data.get('book_title', ''),
@@ -477,6 +506,10 @@ class Reservation:
             data.get('expiry_time', data.get('expire_time', '')),
             data.get('reservation_id', 'UNKNOWN')
         )
+        # preserve last_reminder if present
+        if 'last_reminder' in data and data.get('last_reminder'):
+            inst.last_reminder = data.get('last_reminder')
+        return inst
 
 
 class LibrarySystem:
@@ -662,6 +695,17 @@ class LibrarySystem:
             conn.execute('DROP TABLE books')
             conn.execute('ALTER TABLE books_new RENAME TO books')
 
+    def _migrate_reservation_schema(self, conn):
+        rows = [r['name'] for r in conn.execute("PRAGMA table_info(reservations)")]
+        if not rows:
+            return
+        # if last_reminder column missing, add it
+        if 'last_reminder' not in rows:
+            try:
+                conn.execute('ALTER TABLE reservations ADD COLUMN last_reminder TEXT')
+            except Exception:
+                pass
+
     def initialize_database(self):
         conn = self.connect_db()
         with conn:
@@ -721,7 +765,8 @@ class LibrarySystem:
                     book_title TEXT,
                     start_time TEXT NOT NULL,
                     expiry_time TEXT NOT NULL,
-                    reservation_id TEXT UNIQUE NOT NULL
+                    reservation_id TEXT UNIQUE NOT NULL,
+                    last_reminder TEXT
                 )
                 '''
             )
@@ -830,6 +875,7 @@ class LibrarySystem:
 
         self._migrate_user_schema(conn)
         self._migrate_book_schema(conn)
+        self._migrate_reservation_schema(conn)
         with conn:
             for row in conn.execute('SELECT * FROM users'):
                 email = row['email'] if 'email' in row.keys() else row['username']
@@ -959,8 +1005,8 @@ class LibrarySystem:
             for reservation in self.reservations:
                 conn.execute(
                     '''
-                    INSERT INTO reservations (username, book_id, book_title, start_time, expiry_time, reservation_id)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO reservations (username, book_id, book_title, start_time, expiry_time, reservation_id, last_reminder)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     ''',
                     (
                         reservation.username,
@@ -969,6 +1015,7 @@ class LibrarySystem:
                         reservation.start_time,
                         reservation.expiry_time,
                         reservation.reservation_id,
+                        getattr(reservation, 'last_reminder', None),
                     ),
                 )
         conn.close()
@@ -1185,6 +1232,95 @@ class LibrarySystem:
         
         with open(audit_log_path, 'a', encoding='utf-8') as f:
             f.write(log_entry)
+
+    def send_overdue_email(self, reservation_id, sender_user=None):
+        """Send an overdue reminder email for a single reservation.
+
+        Respects a 24-hour cooldown stored on that reservation's `last_reminder`.
+        Returns True if email sent successfully, False otherwise.
+        """
+        try:
+            reservation = next((r for r in self.reservations if r.reservation_id == reservation_id), None)
+            if not reservation:
+                raise ValueError('Reservation not found')
+
+            if datetime.datetime.fromisoformat(reservation.expiry_time) >= datetime.datetime.now():
+                # Not overdue yet
+                return False
+
+            last_rem = getattr(reservation, 'last_reminder', None)
+            if last_rem:
+                try:
+                    last_dt = datetime.datetime.fromisoformat(last_rem)
+                    if (datetime.datetime.now() - last_dt) < datetime.timedelta(days=1):
+                        return False
+                except Exception:
+                    pass
+
+            user = self.users.get(reservation.username)
+            if not user:
+                raise ValueError('User not found')
+            profile = user.get_personal_data(self.aes_key)
+            recipient = profile.get('email') or reservation.username
+
+            # Email configuration from environment
+            smtp_host = os.getenv('EMAIL_SMTP_HOST', '')
+            smtp_port = int(os.getenv('EMAIL_SMTP_PORT', '0') or 0)
+            smtp_user = os.getenv('EMAIL_SMTP_USER', '')
+            smtp_pass = os.getenv('EMAIL_SMTP_PASS', '')
+            email_from = os.getenv('EMAIL_FROM', 'noreply@library.com')
+
+            subject = f"Нагадування: прострочена книга '{reservation.book_title}'"
+            body = (
+                f"Шановний(а) {profile.get('full_name', reservation.username)},\n\n"
+                f"Нагадаємо, що ви маєте повернути книгу '{reservation.book_title}' (ID: {reservation.book_id}).\n"
+                f"Дедлайн: {reservation.expiry_time}\n\n"
+                "Будь ласка, поверніть книгу або зв'яжіться з бібліотекою.\n\n"
+                "З повагою,\nКоманда бібліотеки"
+            )
+
+            sent = False
+            try:
+                # Try to send via configured SMTP, fall back to localhost
+                import smtplib
+                from email.message import EmailMessage
+
+                msg = EmailMessage()
+                msg['Subject'] = subject
+                msg['From'] = email_from
+                msg['To'] = recipient
+                msg.set_content(body)
+
+                if smtp_host:
+                    port = smtp_port or 587
+                    if port == 465:
+                        server = smtplib.SMTP_SSL(smtp_host, port, timeout=10)
+                    else:
+                        server = smtplib.SMTP(smtp_host, port, timeout=10)
+                        server.starttls()
+                    if smtp_user and smtp_pass:
+                        server.login(smtp_user, smtp_pass)
+                    server.send_message(msg)
+                    server.quit()
+                else:
+                    # Try localhost
+                    server = smtplib.SMTP('localhost')
+                    server.send_message(msg)
+                    server.quit()
+                sent = True
+            except Exception as exc:
+                # Log failure but allow application to continue
+                self.log_operation('overdue_email_failed', {'reservation_id': reservation_id, 'error': str(exc)})
+                sent = False
+
+            if sent:
+                reservation.last_reminder = datetime.datetime.now().isoformat()
+                self.save_data()
+                self.log_operation('overdue_email_sent', {'reservation_id': reservation_id, 'username': reservation.username, 'sent_by': getattr(sender_user, 'username', None)})
+                return True
+            return False
+        except Exception as exc:
+            return False
 
     def filter_books(self, criteria):
         self.cleanup_expired_reservations()

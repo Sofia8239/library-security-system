@@ -6,10 +6,29 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from backend.library_system import LibrarySystem, User, Book
-from security.utils import sanitize_input, validate_email
-from security.utils import validate_phone, validate_date
+
+
+def load_dotenv(dotenv_path):
+    if not os.path.exists(dotenv_path):
+        return
+    with open(dotenv_path, 'r', encoding='utf-8') as file:
+        for line in file:
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = value.strip()
+            if len(value) >= 2 and ((value[0] == value[-1] == '"') or (value[0] == value[-1] == "'")):
+                value = value[1:-1]
+            if key and key not in os.environ:
+                os.environ[key] = value
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+
+from security.utils import sanitize_input, validate_email
+from security.utils import validate_phone, validate_date
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'change-me-secret')
@@ -269,7 +288,7 @@ def users_list():
         flash('Доступ заборонено', 'danger')
         return redirect(url_for('home'))
     users = user.view_all_users(library)
-    return render_template('admin_users.html', user=user, users=users, resolve_asset_url=resolve_asset_url, is_admin=(user.role == 'admin'))
+    return render_template('admin_users.html', user=user, users=users, resolve_asset_url=resolve_asset_url, is_admin=(user.role == 'admin'), is_advanced=(user.role == 'advanced'))
 
 @app.route('/admin/users')
 @login_required
@@ -279,7 +298,25 @@ def admin_users():
         flash('Доступ заборонено', 'danger')
         return redirect(url_for('home'))
     users = user.view_all_users(library)
-    return render_template('admin_users.html', user=user, users=users, resolve_asset_url=resolve_asset_url, is_admin=True)
+    return render_template('admin_users.html', user=user, users=users, resolve_asset_url=resolve_asset_url, is_admin=True, is_advanced=(user.role == 'advanced'))
+
+
+@app.route('/send_reminder/<username>/<reservation_id>', methods=['POST'])
+@login_required
+def send_reminder(username, reservation_id):
+    user = current_user()
+    if not user or user.role != 'advanced':
+        flash('Доступ заборонено', 'danger')
+        return redirect(url_for('home'))
+    try:
+        sent = library.send_overdue_email(reservation_id, sender_user=user)
+        if sent:
+            flash('Нагадування надіслано користувачу', 'success')
+        else:
+            flash('Неможливо надіслати лист: або ця книга ще не прострочена, або для неї вже надсилали нагадування протягом 24 годин', 'warning')
+    except Exception as exc:
+        flash(str(exc), 'danger')
+    return redirect(url_for('users_list'))
 
 
 @app.route('/admin/add_user', methods=['GET', 'POST'])
