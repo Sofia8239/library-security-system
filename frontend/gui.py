@@ -61,6 +61,21 @@ def login_required(view):
 
 
 def resolve_asset_url(path):
+    if not path:
+        return url_for('assets', path='covers/placeholder.jpg')
+
+    if os.path.isabs(path):
+        assets_root = os.path.join(library.base_path, 'assets')
+        try:
+            relative_path = os.path.relpath(path, assets_root).replace('\\', '/')
+        except ValueError:
+            relative_path = None
+        if relative_path and not relative_path.startswith('..'):
+            asset_path = os.path.join(assets_root, relative_path)
+            if os.path.exists(asset_path):
+                return url_for('assets', path=relative_path)
+        return path
+
     if path.startswith('assets/'):
         relative_path = path[len('assets/'):]
         asset_path = os.path.join(library.base_path, 'assets', relative_path)
@@ -199,6 +214,7 @@ def home():
         'status': request.args.get('status', 'all'),
     }
     books = library.filter_books(criteria)
+    authors = sorted({book.author for book in library.books.values() if book.author})
     profile_name = user.get_personal_data(library.aes_key).get('full_name', user.username)
     return render_template(
         'home.html',
@@ -206,6 +222,7 @@ def home():
         books=books,
         criteria=criteria,
         profile_name=profile_name,
+        authors=authors,
         resolve_asset_url=resolve_asset_url,
     )
 
@@ -223,8 +240,6 @@ def favorites():
 def profile():
     user = current_user()
     profile_data = user.get_personal_data(library.aes_key)
-    # Show all reservations (active and expired) so user can return them manually
-    reservations = [r for r in library.reservations if r.username == user.username]
 
     if request.method == 'POST':
         # Determine if this is profile update or password change
@@ -275,9 +290,15 @@ def profile():
         'profile.html',
         user=user,
         profile_data=profile_data,
-        reservations=reservations,
         resolve_asset_url=resolve_asset_url,
     )
+
+@app.route('/my_reservations')
+@login_required
+def my_reservations():
+    user = current_user()
+    reservations = [r for r in library.reservations if r.username == user.username]
+    return render_template('my_reservations.html', user=user, reservations=reservations, resolve_asset_url=resolve_asset_url)
 
 
 @app.route('/users')
@@ -625,7 +646,7 @@ def delete_avatar():
     user = current_user()
     try:
         data = user.get_personal_data(library.aes_key)
-        data['profile_picture_path'] = 'No image selected'
+        data['profile_picture_path'] = 'assets/avatars/defaults/default.png'
         user.set_personal_data(data, library.aes_key)
         library.save_data()
         library.log_operation('avatar_deleted', {'username': user.username})
@@ -679,7 +700,7 @@ def return_reservation(reservation_id):
         flash('Книга повернена', 'success')
     except Exception as exc:
         flash(str(exc), 'danger')
-    return redirect(url_for('profile'))
+    return redirect(url_for('my_reservations'))
 
 
 if __name__ == '__main__':

@@ -2,18 +2,23 @@
 {% block content %}
 <div class="profile-card">
   <div class="profile-header">
-    <div class="avatar" style="background-image: url('{{ resolve_asset_url(profile_data.profile_picture_path) }}');" onerror="this.style.backgroundImage='url({{ url_for('assets', path='avatars/defaults/default.png') }})'"></div>
-    <h1>{{ profile_data.full_name or user.username }}</h1>
-    <div class="bonus-points">
-      <span class="star">⭐</span>
-      <span class="points gold-font">{{ user.get_bonus_points() }} SafePoints</span>
+    <div class="profile-info">
+      <div class="avatar" style="background-image: url('{{ resolve_asset_url(profile_data.profile_picture_path) }}');" onerror="this.style.backgroundImage='url({{ url_for('assets', path='avatars/defaults/default.png') }})'"></div>
+      <div>
+        <h1>{{ profile_data.full_name or user.username }}</h1>
+        <div class="bonus-points">
+          <span class="star">⭐</span>
+          <span class="points gold-font">{{ user.get_bonus_points() }} SafePoints</span>
+        </div>
+      </div>
     </div>
-    <form action="{{ url_for('upload_avatar') }}" method="post" enctype="multipart/form-data" class="avatar-upload">
-      <label for="avatar-input" class="gold-button">Оновити аватар</label>
-      <input type="file" id="avatar-input" name="avatar" accept="image/*" style="display: none;">
-      <button type="submit" class="gold-button">Завантажити</button>
-    </form>
-    <button id="delete-avatar-btn" class="gold-button" style="background: #C06014;">Видалити фото</button>
+    <div class="profile-actions">
+      <form id="avatar-form" action="{{ url_for('upload_avatar') }}" method="post" enctype="multipart/form-data" class="avatar-upload">
+        <label for="avatar-input" class="button secondary">Оновити аватар</label>
+        <input type="file" id="avatar-input" name="avatar" accept="image/*" style="display: none;">
+      </form>
+      <button id="delete-avatar-btn" class="button secondary">Видалити фото</button>
+    </div>
   </div>
 
   <section class="security-card">
@@ -28,9 +33,12 @@
     </div>
   </section>
 
-  <section>
-    <h2>Редагувати особисті дані</h2>
-    <form method="post" action="{{ url_for('profile') }}" class="auth-form">
+  <section class="profile-section">
+    <div class="section-header">
+      <h2>Редагувати особисті дані</h2>
+      <button id="toggle-profile-form" type="button" class="button tertiary">Update Profile</button>
+    </div>
+    <form id="profile-form" method="post" action="{{ url_for('profile') }}" class="auth-form hidden-section">
       <label>ПІБ</label>
       <input type="text" name="full_name" value="{{ profile_data.full_name or '' }}" required>
 
@@ -50,28 +58,20 @@
     </form>
   </section>
 
-  <section>
-    <h2>Мої бронювання</h2>
-    {% if reservations %}
-      {% for reservation in reservations %}
-        {% set expired = not reservation.is_active() %}
-        <div class="reservation-ticket {% if expired %}overdue{% endif %}">
-          <div class="ticket-info">
-            <h3>{{ reservation.book_title }}</h3>
-            <p class="ticket-code gold-font">{{ reservation.reservation_id }}</p>
-          </div>
-          <div class="ticket-timer" data-expiry="{{ reservation.expiry_time }}">{{ reservation.time_remaining().total_seconds() // 3600 }}:{{ '%02d' % ((reservation.time_remaining().total_seconds() % 3600) // 60) }}:{{ '%02d' % (reservation.time_remaining().total_seconds() % 60) }}</div>
-          <div class="ticket-actions">
-            <form method="post" action="{{ url_for('return_reservation', reservation_id=reservation.reservation_id) }}" class="return-form">
-              <button type="submit" class="gold-button">Повернути</button>
-            </form>
-          </div>
-        </div>
-      {% endfor %}
-    {% else %}
-      <p>Бронювань немає.</p>
-    {% endif %}
+  <section class="profile-section">
+    <div class="section-header">
+      <h2>Змінити пароль</h2>
+      <button id="toggle-password-form" type="button" class="button tertiary">Change Password</button>
+    </div>
+    <form id="password-form" method="post" action="{{ url_for('profile') }}" class="auth-form hidden-section">
+      <label>Поточний пароль</label>
+      <input type="password" name="current_password" required>
+      <label>Новий пароль</label>
+      <input type="password" name="new_password" required>
+      <button type="submit">Оновити пароль</button>
+    </form>
   </section>
+
 
   <section>
     <h2>Бібліотечна Крамниця</h2>
@@ -98,18 +98,10 @@
       </div>
     </div>
   </section>
-    <form method="post" class="auth-form">
-      <label>Поточний пароль</label>
-      <input type="password" name="current_password" required>
-      <label>Новий пароль</label>
-      <input type="password" name="new_password" required>
-      <button type="submit">Оновити пароль</button>
-    </form>
     <div style="margin-top: 16px;">
       <button id="gdpr-btn" class="gold-button" style="background: #C06014;">Видалити всі дані (GDPR)</button>
       <a href="{{ url_for('logout') }}" class="outlined-btn">Вийти з системи</a>
     </div>
-  </section>
 </div>
 
 <!-- GDPR Confirm Modal -->
@@ -141,33 +133,6 @@ window.onclick = function(event) {
     event.target.style.display = 'none';
   }
 }
-
-// Update countdown timers
-function updateTimers() {
-    document.querySelectorAll('.ticket-timer').forEach(timer => {
-    const expiry = new Date(timer.dataset.expiry);
-    const now = new Date();
-    const diff = expiry - now;
-    if (diff >= 0) {
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      timer.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      timer.closest('.reservation-ticket').classList.remove('overdue');
-    } else {
-      // overdue: show positive elapsed time
-      const overdue = Math.abs(diff);
-      const hours = Math.floor(overdue / (1000 * 60 * 60));
-      const minutes = Math.floor((overdue % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((overdue % (1000 * 60)) / 1000);
-      timer.textContent = `+${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-      timer.closest('.reservation-ticket').classList.add('overdue');
-    }
-  });
-}
-
-setInterval(updateTimers, 1000);
-updateTimers();
 
 // Redeem points
 document.querySelectorAll('.redeem-btn').forEach(btn => {
@@ -207,6 +172,35 @@ document.getElementById('delete-avatar-btn').addEventListener('click', function(
     });
   }
 });
+
+const avatarInput = document.getElementById('avatar-input');
+const avatarForm = document.getElementById('avatar-form');
+if (avatarInput && avatarForm) {
+  avatarInput.addEventListener('change', function() {
+    if (this.files.length) {
+      avatarForm.submit();
+    }
+  });
+}
+
+// Toggle profile and password sections
+const toggleProfileButton = document.getElementById('toggle-profile-form');
+const profileForm = document.getElementById('profile-form');
+if (toggleProfileButton && profileForm) {
+  toggleProfileButton.addEventListener('click', function() {
+    const isHidden = profileForm.classList.toggle('hidden-section');
+    toggleProfileButton.textContent = isHidden ? 'Update Profile' : 'Hide';
+  });
+}
+
+const togglePasswordButton = document.getElementById('toggle-password-form');
+const passwordForm = document.getElementById('password-form');
+if (togglePasswordButton && passwordForm) {
+  togglePasswordButton.addEventListener('click', function() {
+    const isHidden = passwordForm.classList.toggle('hidden-section');
+    togglePasswordButton.textContent = isHidden ? 'Change Password' : 'Hide';
+  });
+}
 
 // Confirm before returning a reservation
 document.querySelectorAll('.return-form').forEach(form => {

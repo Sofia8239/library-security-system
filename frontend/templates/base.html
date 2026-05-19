@@ -36,6 +36,10 @@
       <div class="nav-icon">💛</div>
       <span class="nav-text">Обране</span>
     </a>
+    <a href="{{ url_for('my_reservations') }}" class="nav-item {% if request.endpoint == 'my_reservations' %}active{% endif %}">
+      <div class="nav-icon">🧾</div>
+      <span class="nav-text">Бронювання</span>
+    </a>
     <a href="{{ url_for('profile') }}" class="nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
       <div class="nav-icon">👤</div>
       <span class="nav-text">Профіль</span>

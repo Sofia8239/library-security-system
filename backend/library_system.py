@@ -166,10 +166,11 @@ class User:
         import shutil
         avatar_filename = f"{self.username}_avatar{os.path.splitext(image_path)[1]}"
         avatar_path = os.path.join(avatars_dir, avatar_filename)
-        shutil.copy2(image_path, avatar_path)
-        
+        if os.path.abspath(image_path) != os.path.abspath(avatar_path):
+            shutil.copy2(image_path, avatar_path)
+
         data = self.get_personal_data(library.aes_key)
-        data['profile_picture_path'] = avatar_path
+        data['profile_picture_path'] = os.path.join('assets', 'avatars', avatar_filename).replace('\\', '/')
         self.set_personal_data(data, library.aes_key)
         library.save_data()
         library.log_operation('avatar_updated', {'username': self.username})

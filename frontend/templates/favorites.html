@@ -4,9 +4,9 @@
   <h1>Обране</h1>
   <p>Відзначені вами книги.</p>
 
-  <div class="book-grid">
+  <div class="book-grid favorites-grid">
     {% for book in books %}
-      <article class="book-card">
+      <article class="book-card favorite-card">
         <div class="cover" style="background-image:url('{{ resolve_asset_url(book.avatar_book) }}')"></div>
         <div class="book-content">
           <h2>{{ book.title }}</h2>
@@ -14,7 +14,7 @@
           <p>{{ book.description[:120] }}{% if book.description|length > 120 %}...{% endif %}</p>
           <div class="actions">
             <a class="button" href="{{ url_for('book_detail', book_id=book.id) }}">Деталі</a>
-            <a class="button tertiary" href="{{ url_for('toggle_favorite', book_id=book.id) }}">Видалити</a>
+            <button type="button" class="button tertiary favorite-remove-btn" data-book-id="{{ book.id }}">Видалити</button>
           </div>
         </div>
       </article>
@@ -23,4 +23,28 @@
     {% endfor %}
   </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.favorite-remove-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const bookId = this.dataset.bookId;
+      fetch(`/favorite/${bookId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(() => {
+        alert('Не вдалося оновити обране');
+      });
+    });
+  });
+});
+</script>
 {% endblock %}

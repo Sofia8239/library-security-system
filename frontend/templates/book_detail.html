@@ -24,7 +24,7 @@
             <button type="submit" class="button">Забронювати</button>
           </form>
         {% endif %}
-        <a class="button tertiary" href="{{ url_for('toggle_favorite', book_id=book.id) }}">{{ 'Видалити з обраного' if user.has_favorite(book.id) else 'Обране' }}</a>
+        <button id="favorite-btn" type="button" class="button tertiary" data-book-id="{{ book.id }}">{{ 'Видалити з обраного' if user.has_favorite(book.id) else 'Обране' }}</button>
       </div>
     </div>
   </div>
@@ -67,4 +67,30 @@
     </form>
   </section>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const favBtn = document.getElementById('favorite-btn');
+  if (favBtn) {
+    favBtn.addEventListener('click', function() {
+      const bookId = this.dataset.bookId;
+      fetch(`/favorite/${bookId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          this.textContent = data.is_favorite ? 'Видалити з обраного' : 'Обране';
+        } else {
+          alert(data.message);
+        }
+      })
+      .catch(() => {
+        alert('Не вдалося оновити обране');
+      });
+    });
+  }
+});
+</script>
 {% endblock %}

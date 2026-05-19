@@ -190,22 +190,230 @@ body {
 .filter-form,
 .auth-form {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 24px;
 }
 
-.filter-form input,
-.filter-form select,
-.auth-form input,
-.auth-form select,
-.auth-form textarea {
+.search-form {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.search-form .form-group {
+  display: grid;
+  gap: 8px;
+}
+
+.search-form .form-group label {
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.search-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-input-row input {
+  flex: 1;
+}
+
+.search-input-row button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.search-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+@media (max-width: 960px) {
+  .search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .search-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input-row button {
+    width: 100%;
+  }
+
+  .search-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+.search-form input,
+.search-form select {
+  width: 100%;
+  min-width: 0;
+}
+
+.search-form select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-light) 50%),
+                    linear-gradient(135deg, var(--text-light) 50%, transparent 50%),
+                    linear-gradient(to right, var(--card-bg), var(--card-bg));
+  background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 14px) calc(1em + 2px), 0 0;
+  background-size: 8px 8px, 8px 8px, 100% 100%;
+  background-repeat: no-repeat;
+  padding-right: 40px;
+}
+
+.search-form button {
+  width: 100%;
+  min-height: 48px;
+}
+
+@media (max-width: 900px) {
+  .search-form {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .search-form .form-group {
+    align-items: stretch;
+  }
+}
+
+.home-footer-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.home-footer-actions .button {
+  width: auto;
+  min-width: 220px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.hidden-section {
+  display: none;
+}
+
+.book-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+.book-card-vertical {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--border-radius);
-  background: var(--card-bg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 100%;
+}
+
+.book-card-vertical:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.book-card-vertical .cover {
+  height: 240px;
+  width: 100%;
+}
+
+.book-card-vertical .book-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.book-card-vertical .actions {
+  margin-top: auto;
+}
+
+.book-card-vertical h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.book-card-vertical .meta,
+.book-card-vertical .status {
+  font-size: 0.95rem;
+}
+
+.book-card-vertical .favorite-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+}
+
+.profile-card {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.profile-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.profile-header h1 {
+  margin: 0;
+}
+
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-self: end;
+}
+
+.avatar-upload {
+  display: flex;
+  gap: 12px;
+}
+
+.button.secondary {
+  background: var(--secondary-accent);
   color: var(--text-light);
-  padding: 12px 14px;
-  font-size: 16px;
-  min-height: 44px;
+}
+
+.profile-header .bonus-points {
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.profile-section {
+  margin-bottom: 32px;
 }
 
 .auth-form button {
@@ -226,6 +434,48 @@ body {
   font-weight: 600;
   min-height: 44px;
   font-size: 16px;
+  transition: filter 0.2s ease, transform 0.15s ease;
+}
+
+button,
+input[type="submit"],
+input[type="button"],
+input[type="reset"],
+select,
+textarea,
+input,
+textarea {
+  border-radius: var(--border-radius);
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-light);
+  padding: 12px 14px;
+  font-size: 16px;
+  font-family: inherit;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+input::placeholder,
+select::placeholder,
+textarea::placeholder {
+  color: #a78e6a;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus,
+input[type="submit"]:focus,
+input[type="button"]:focus {
+  outline: none;
+  border-color: var(--text-gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.16);
 }
 
 .button.secondary {
@@ -242,7 +492,34 @@ body {
 .book-grid {
   display: grid;
   gap: 20px;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.favorite-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  min-height: 360px;
+}
+
+.favorite-card .cover {
+  height: 180px;
+}
+
+.favorite-card .book-content {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.favorite-card .actions {
+  margin-top: auto;
 }
 
 .book-card {
@@ -528,51 +805,6 @@ body {
   font-size: 14px;
 }
 
-/* Profile Styles */
-.profile-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--border-radius);
-  padding: 28px;
-  box-shadow: var(--shadow);
-}
-
-.profile-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: var(--secondary-accent);
-  margin: 0 auto 16px;
-  background-size: cover;
-  background-position: center;
-  border: 3px solid var(--text-gold);
-}
-
-.avatar-upload {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.security-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--border-radius);
-  padding: 20px;
-  margin-bottom: 24px;
-}
-
-.profile-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
 
 .reservation-ticket {
   background: linear-gradient(135deg, #2D1B14, #4A352A);
@@ -615,111 +847,6 @@ body {
   color: var(--text-gold);
   font-weight: bold;
   font-size: 16px;
-}
-
-/* Home Styles */
-.search-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.search-bar input {
-  padding: 12px;
-  border: 1px solid var(--card-border);
-  border-radius: var(--border-radius);
-  background: var(--card-bg);
-  color: var(--text-light);
-}
-
-.filter-dropdown select {
-  padding: 12px;
-  border: 1px solid var(--card-border);
-  border-radius: var(--border-radius);
-  background: var(--card-bg);
-  color: var(--text-light);
-}
-
-.book-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.book-card-vertical {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--border-radius);
-  padding: 16px;
-  display: flex;
-  gap: 16px;
-  position: relative;
-}
-
-.book-card-vertical .cover {
-  width: 80px;
-  height: 120px;
-  background-size: cover;
-  background-position: center;
-  border-radius: var(--border-radius);
-  flex-shrink: 0;
-}
-
-.book-card-vertical .favorite-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s;
-}
-
-.book-card-vertical .favorite-btn:hover {
-  transform: scale(1.1);
-}
-
-.book-card-vertical .favorite-btn:active {
-  transform: scale(0.95);
-}
-
-.book-card-vertical .book-content {
-  flex: 1;
-}
-
-.book-card-vertical h2 {
-  margin: 0 0 8px;
-  color: var(--text-light);
-}
-
-.book-card-vertical .meta {
-  color: var(--secondary-accent);
-  font-size: 14px;
-  margin: 0 0 8px;
-}
-
-.book-card-vertical p {
-  margin: 0 0 8px;
-  color: var(--text-light);
-}
-
-.book-card-vertical .status {
-  color: var(--text-gold);
-  font-weight: bold;
-}
-
-.book-card-vertical .actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
 }
 
 /* Reserve Success */
@@ -835,8 +962,24 @@ body {
 }
 
 .profile-header {
-  text-align: center;
-  margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: end;
 }
 
 .avatar {
@@ -844,14 +987,18 @@ body {
   height: 100px;
   border-radius: 50%;
   border: 2px solid var(--text-gold);
-  margin: 0 auto 16px;
   background-size: cover;
   background-position: center;
   background-color: var(--body-bg);
 }
 
+.avatar-upload {
+  display: flex;
+  gap: 8px;
+}
+
 .security-card {
-  background: var(--body-bg);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--border-radius);
   padding: 20px;
@@ -865,8 +1012,13 @@ body {
   padding: 16px;
   margin-bottom: 12px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reservation-ticket.overdue {
+  border-color: #ff4d4f;
+  box-shadow: 0 6px 18px rgba(255, 77, 79, 0.12);
 }
 
 .ticket-info h3 {
@@ -883,6 +1035,14 @@ body {
 .ticket-timer {
   color: var(--text-gold);
   font-weight: bold;
+}
+
+@media (min-width: 768px) {
+  .reservation-ticket {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
 }
 
 .outlined-btn {
