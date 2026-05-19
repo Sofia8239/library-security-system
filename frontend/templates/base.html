@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,36 +30,36 @@
   <nav class="bottom-nav">
     <a href="{{ url_for('home') }}" class="nav-item {% if request.endpoint == 'home' %}active{% endif %}">
       <div class="nav-icon">🏠</div>
-      <span class="nav-text">Головна</span>
+      <span class="nav-text">Home</span>
     </a>
     <a href="{{ url_for('favorites') }}" class="nav-item {% if request.endpoint == 'favorites' %}active{% endif %}">
       <div class="nav-icon">💛</div>
-      <span class="nav-text">Обране</span>
+      <span class="nav-text">Favorites</span>
     </a>
     <a href="{{ url_for('my_reservations') }}" class="nav-item {% if request.endpoint == 'my_reservations' %}active{% endif %}">
       <div class="nav-icon">🧾</div>
-      <span class="nav-text">Бронювання</span>
+      <span class="nav-text">Reservations</span>
     </a>
     <a href="{{ url_for('profile') }}" class="nav-item {% if request.endpoint == 'profile' %}active{% endif %}">
       <div class="nav-icon">👤</div>
-      <span class="nav-text">Профіль</span>
+      <span class="nav-text">Profile</span>
     </a>
     {% if user.role == 'advanced' %}
     <a href="{{ url_for('users_list') }}" class="nav-item {% if request.endpoint == 'users_list' %}active{% endif %}">
       <div class="nav-icon">👥</div>
-      <span class="nav-text">Користувачі</span>
+      <span class="nav-text">Users</span>
     </a>
     {% elif user.role == 'admin' %}
     <a href="{{ url_for('admin_books') }}" class="nav-item {% if request.endpoint.startswith('admin_') %}active{% endif %}">
       <div class="nav-icon">🛠️</div>
-      <span class="nav-text">Адмін</span>
+      <span class="nav-text">Admin</span>
     </a>
     {% endif %}
   </nav>
   {% endif %}
 
   <footer class="app-footer">
-    <p>SafeLibrary &copy; 2026 — Браузерний інтерфейс</p>
+    <p>SafeLibrary © 2026 — Web interface</p>
   </footer>
 </body>
 </html>

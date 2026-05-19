@@ -54,7 +54,7 @@ def login_required(view):
     @wraps(view)
     def wrapped_view(*args, **kwargs):
         if current_user() is None:
-            flash('Будь ласка, увійдіть у свій обліковий запис', 'warning')
+            flash('Please sign in to your account', 'warning')
             return redirect(url_for('login'))
         return view(*args, **kwargs)
     return wrapped_view
@@ -112,7 +112,7 @@ def login():
             else:
                 user = library.login(email, password)
             session['username'] = user.username
-            flash('Успішний вхід', 'success')
+            flash('Login successful', 'success')
             return redirect(url_for('home'))
         except Exception as exc:
             flash(str(exc), 'danger')
@@ -132,18 +132,18 @@ def register():
         city = sanitize_input(request.form.get('city', '').strip())
 
         if not full_name or not email or not password:
-            flash('Заповніть усі поля', 'danger')
+            flash('Please fill in all fields', 'danger')
             return redirect(url_for('register'))
 
         if not validate_email(email):
-            flash('Недійсна електронна адреса', 'danger')
+            flash('Invalid email address', 'danger')
             return redirect(url_for('register'))
 
         if phone and not validate_phone(phone):
-            flash('Недійсний номер телефону', 'danger')
+            flash('Invalid phone number', 'danger')
             return redirect(url_for('register'))
         if birth_date and not validate_date(birth_date):
-            flash('Недійсна дата народження', 'danger')
+            flash('Invalid birth date', 'danger')
             return redirect(url_for('register'))
 
         try:
@@ -160,7 +160,7 @@ def register():
             user = User.create_user(email, password, 'client', profile_data)
             user.register(library)
             session['username'] = user.username
-            flash('Реєстрація успішна! Оберіть аватар.', 'success')
+            flash('Registration successful! Choose an avatar.', 'success')
             return redirect(url_for('onboarding'))
         except Exception as exc:
             flash(str(exc), 'danger')
@@ -199,7 +199,7 @@ def onboarding():
 @app.route('/logout')
 def logout():
     session.pop('username', None)
-    flash('Ви вийшли з системи', 'info')
+    flash('You have been logged out', 'info')
     return redirect(url_for('login'))
 
 
@@ -247,11 +247,11 @@ def profile():
             old_password = request.form.get('current_password', '')
             new_password = request.form.get('new_password', '')
             if not old_password or not new_password:
-                flash('Заповніть обидва поля для зміни пароля', 'danger')
+                flash('Please fill both password fields', 'danger')
             else:
                 try:
                     library.update_password(user.username, old_password, new_password)
-                    flash('Пароль оновлено', 'success')
+                    flash('Password updated', 'success')
                 except Exception as exc:
                     flash(str(exc), 'danger')
             return redirect(url_for('profile'))
@@ -263,13 +263,13 @@ def profile():
             city = sanitize_input(request.form.get('city', '').strip())
             birth_date = sanitize_input(request.form.get('birth_date', '').strip())
             if not full_name:
-                flash('ПІБ є обов\'язковим', 'danger')
+                flash('Full name is required', 'danger')
                 return redirect(url_for('profile'))
             if phone and not validate_phone(phone):
-                flash('Недійсний номер телефону', 'danger')
+                flash('Invalid phone number', 'danger')
                 return redirect(url_for('profile'))
             if birth_date and not validate_date(birth_date):
-                flash('Недійсна дата народження', 'danger')
+                flash('Invalid birth date', 'danger')
                 return redirect(url_for('profile'))
             try:
                 data = user.get_personal_data(library.aes_key)
@@ -281,7 +281,7 @@ def profile():
                 user.set_personal_data(data, library.aes_key)
                 library.save_data()
                 library.log_operation('profile_updated', {'username': user.username})
-                flash('Профіль оновлено', 'success')
+                flash('Profile updated', 'success')
             except Exception as exc:
                 flash(str(exc), 'danger')
             return redirect(url_for('profile'))
@@ -306,7 +306,7 @@ def my_reservations():
 def users_list():
     user = current_user()
     if not user or user.role not in {'admin', 'advanced'}:
-        flash('Доступ заборонено', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('home'))
     users = user.view_all_users(library)
     return render_template('admin_users.html', user=user, users=users, resolve_asset_url=resolve_asset_url, is_admin=(user.role == 'admin'), is_advanced=(user.role == 'advanced'))
@@ -316,7 +316,7 @@ def users_list():
 def admin_users():
     user = current_user()
     if not user or user.role != 'admin':
-        flash('Доступ заборонено', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('home'))
     users = user.view_all_users(library)
     return render_template('admin_users.html', user=user, users=users, resolve_asset_url=resolve_asset_url, is_admin=True, is_advanced=(user.role == 'advanced'))
@@ -327,14 +327,14 @@ def admin_users():
 def send_reminder(username, reservation_id):
     user = current_user()
     if not user or user.role != 'advanced':
-        flash('Доступ заборонено', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('home'))
     try:
         sent = library.send_overdue_email(reservation_id, sender_user=user)
         if sent:
-            flash('Нагадування надіслано користувачу', 'success')
+            flash('Reminder sent to user', 'success')
         else:
-            flash('Неможливо надіслати лист: або ця книга ще не прострочена, або для неї вже надсилали нагадування протягом 24 годин', 'warning')
+            flash('Cannot send reminder: either this book is not overdue or a reminder was already sent within 24 hours', 'warning')
     except Exception as exc:
         flash(str(exc), 'danger')
     return redirect(url_for('users_list'))
@@ -345,7 +345,7 @@ def send_reminder(username, reservation_id):
 def admin_add_user():
     admin = current_user()
     if not admin or admin.role != 'admin':
-        flash('Доступ заборонено', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('home'))
     if request.method == 'POST':
         full_name = sanitize_input(request.form.get('full_name', '').strip())
@@ -357,13 +357,13 @@ def admin_add_user():
         address = sanitize_input(request.form.get('address', '').strip())
         city = sanitize_input(request.form.get('city', '').strip())
         if not full_name or not email or not password:
-            flash('Заповніть обов\'язкові поля', 'danger')
+            flash('Please fill in required fields', 'danger')
             return redirect(url_for('admin_add_user'))
         if phone and not validate_phone(phone):
-            flash('Недійсний телефон', 'danger')
+            flash('Invalid phone', 'danger')
             return redirect(url_for('admin_add_user'))
         if birth_date and not validate_date(birth_date):
-            flash('Недійсна дата', 'danger')
+            flash('Invalid date', 'danger')
             return redirect(url_for('admin_add_user'))
         try:
             profile_data = {
@@ -378,7 +378,7 @@ def admin_add_user():
             }
             new_user = User.create_user(email, password, role, profile_data)
             admin.add_user(library, new_user)
-            flash('Користувача створено', 'success')
+            flash('User created', 'success')
             return redirect(url_for('admin_users'))
         except Exception as exc:
             flash(str(exc), 'danger')
@@ -391,15 +391,15 @@ def admin_add_user():
 def admin_delete_user(email):
     admin = current_user()
     if not admin or admin.role != 'admin':
-        flash('Доступ заборонено', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('home'))
     # Prevent admin from deleting self
     if email == admin.username:
-        flash('Не можна видалити себе', 'danger')
+        flash('Cannot delete yourself', 'danger')
         return redirect(url_for('admin_users'))
     try:
         library.delete_user_data(email)
-        flash('Користувача видалено', 'success')
+        flash('User deleted', 'success')
     except Exception as exc:
         flash(str(exc), 'danger')
     return redirect(url_for('admin_users'))
@@ -410,7 +410,7 @@ def admin_delete_user(email):
 def admin_books():
     user = current_user()
     if not user or user.role != 'admin':
-        flash('Доступ заборонено', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('home'))
     return render_template('admin_books.html', user=user, books=library.books.values(), resolve_asset_url=resolve_asset_url)
 
@@ -420,7 +420,7 @@ def admin_books():
 def admin_add_book():
     admin = current_user()
     if not admin or admin.role != 'admin':
-        flash('Доступ заборонено', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('home'))
     if request.method == 'POST':
         book_id = sanitize_input(request.form.get('id', '').strip())
@@ -436,7 +436,7 @@ def admin_add_book():
         avatar_book = sanitize_input(request.form.get('avatar_book', '').strip())
         file_content_path = sanitize_input(request.form.get('file_content_path', '').strip())
         if not book_id or not title or not author or not genre:
-            flash('Заповніть обов’язкові поля книги', 'danger')
+            flash('Please fill in the required book fields', 'danger')
             return redirect(url_for('admin_add_book'))
         try:
             book = Book(
@@ -454,7 +454,7 @@ def admin_add_book():
                 file_content_path=file_content_path or f'assets/library/{genre}_{book_id}.txt',
             )
             library.add_book(book)
-            flash('Книгу додано', 'success')
+            flash('Book added', 'success')
             return redirect(url_for('admin_books'))
         except Exception as exc:
             flash(str(exc), 'danger')
@@ -467,11 +467,11 @@ def admin_add_book():
 def admin_edit_book(book_id):
     admin = current_user()
     if not admin or admin.role != 'admin':
-        flash('Доступ заборонено', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('home'))
     book = library.books.get(book_id)
     if not book:
-        flash('Книга не знайдена', 'danger')
+        flash('Book not found', 'danger')
         return redirect(url_for('admin_books'))
     if request.method == 'POST':
         title = sanitize_input(request.form.get('title', '').strip())
@@ -500,7 +500,7 @@ def admin_edit_book(book_id):
                 avatar_book=avatar_book or getattr(book, 'avatar_book', None) or getattr(book, 'cover_front_path', None) or getattr(book, 'cover_back_path', None),
                 file_content_path=file_content_path or book.file_content_path,
             )
-            flash('Книгу оновлено', 'success')
+            flash('Book updated', 'success')
             return redirect(url_for('admin_books'))
         except Exception as exc:
             flash(str(exc), 'danger')
@@ -513,11 +513,11 @@ def admin_edit_book(book_id):
 def admin_delete_book(book_id):
     admin = current_user()
     if not admin or admin.role != 'admin':
-        flash('Доступ заборонено', 'danger')
+        flash('Access denied', 'danger')
         return redirect(url_for('home'))
     try:
         library.delete_book(book_id)
-        flash('Книгу видалено', 'success')
+        flash('Book deleted', 'success')
     except Exception as exc:
         flash(str(exc), 'danger')
     return redirect(url_for('admin_books'))
@@ -529,7 +529,7 @@ def book_detail(book_id):
     user = current_user()
     book = library.books.get(book_id)
     if not book:
-        flash('Книга не знайдена', 'danger')
+        flash('Book not found', 'danger')
         return redirect(url_for('home'))
 
     if request.method == 'POST':
@@ -537,7 +537,7 @@ def book_detail(book_id):
         comment = request.form.get('comment', '')
         try:
             library.add_review(user.username, book_id, rating, comment)
-            flash('Оцінка додана', 'success')
+            flash('Rating added', 'success')
             return redirect(url_for('book_detail', book_id=book_id))
         except Exception as exc:
             flash(str(exc), 'danger')
@@ -576,7 +576,7 @@ def reserve(book_id):
         unit_val = (unit or 'days').lower()
         try:
             reservation = library.reserve_book(user.username, book_id, duration=duration_val, unit=unit_val)
-            flash('Книга заброньована', 'success')
+            flash('Book reserved', 'success')
             return render_template('reserve_success.html', reservation=reservation, user=user, resolve_asset_url=resolve_asset_url)
         except Exception as exc:
             flash(str(exc), 'danger')
@@ -585,7 +585,7 @@ def reserve(book_id):
         # Maintain backward compatibility: allow GET to create a default reservation
         try:
             reservation = library.reserve_book(user.username, book_id)
-            flash('Книга заброньована', 'success')
+            flash('Book reserved', 'success')
             return render_template('reserve_success.html', reservation=reservation, user=user, resolve_asset_url=resolve_asset_url)
         except Exception as exc:
             flash(str(exc), 'danger')
@@ -600,10 +600,10 @@ def toggle_favorite(book_id):
         is_favorite = user.has_favorite(book_id)
         if is_favorite:
             user.remove_favorite(library, book_id)
-            message = 'Видалено з обраного'
+            message = 'Removed from favorites'
         else:
             user.add_favorite(library, book_id)
-            message = 'Додано до обраного'
+            message = 'Added to favorites'
         return {'success': True, 'is_favorite': not is_favorite, 'message': message}
     except Exception as exc:
         return {'success': False, 'message': str(exc)}, 400
@@ -667,7 +667,7 @@ def redeem():
             library.log_operation('reward_redeemed', {'username': user.username, 'reward': reward, 'cost': cost})
             return {'success': True}
         else:
-            return {'success': False, 'message': 'Недостатньо SafePoints'}
+            return {'success': False, 'message': 'Not enough SafePoints'}
     except Exception as exc:
         return {'success': False, 'message': str(exc)}, 400
 
@@ -697,7 +697,7 @@ def return_reservation(reservation_id):
     user = current_user()
     try:
         library.return_reservation(user.username, reservation_id=reservation_id)
-        flash('Книга повернена', 'success')
+        flash('Book returned', 'success')
     except Exception as exc:
         flash(str(exc), 'danger')
     return redirect(url_for('my_reservations'))

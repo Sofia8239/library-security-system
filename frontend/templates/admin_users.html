@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="page-card">
-  <h1>Керування користувачами</h1>
+  <h1>User Management</h1>
   <p>
     {% if is_admin %}
-    <a href="{{ url_for('admin_add_user') }}" class="gold-button">Додати користувача</a>
+    <a href="{{ url_for('admin_add_user') }}" class="gold-button">Add user</a>
     {% endif %}
-    <a href="{{ url_for('admin_books') }}" class="outlined-btn">Книги</a>
+    <a href="{{ url_for('admin_books') }}" class="outlined-btn">Books</a>
   </p>
 
   <style>
@@ -99,13 +99,13 @@
         <div class="user-avatar" style="background-image:url('{{ resolve_asset_url(info.profile_picture_path) }}')"></div>
         <div class="user-meta">
           <h3>{{ uname }}</h3>
-          <p><strong>Роль:</strong> {{ info.role }}</p>
-          <p><strong>Обраних книг:</strong> {{ info.favorites_count }}</p>
+          <p><strong>Role:</strong> {{ info.role }}</p>
+          <p><strong>Favorited books:</strong> {{ info.favorites_count }}</p>
         </div>
         <div class="user-actions">
           {% if is_admin %}
           <form method="post" action="{{ url_for('admin_delete_user', email=uname) }}" style="display:inline">
-            <button type="submit" class="outlined-btn" onclick="return confirm('Видалити користувача?')">Видалити</button>
+            <button type="submit" class="outlined-btn" onclick="return confirm('Delete user?')">Delete</button>
           </form>
           {% endif %}
         </div>
@@ -113,18 +113,18 @@
 
       {% if info.reservations %}
       <div class="reservations-section">
-        <h4 style="margin: 0 0 10px 0; color: var(--text-gold);">📚 Забронійовані книги:</h4>
+        <h4 style="margin: 0 0 10px 0; color: var(--text-gold);">📚 Reserved books:</h4>
         {% for res in info.reservations %}
         <div class="reservation-item {% if res.is_overdue %}overdue{% endif %}">
           <h4>
             {{ res.book_title }}
             {% if res.is_overdue %}
-            <span class="overdue-badge">ОВЕРДЮ</span>
+            <span class="overdue-badge">OVERDUE</span>
             {% endif %}
           </h4>
-          <div class="reservation-detail"><strong>Книга ID:</strong> {{ res.book_id }}</div>
+          <div class="reservation-detail"><strong>Book ID:</strong> {{ res.book_id }}</div>
           <div class="reservation-detail">
-            <strong>Дедлайн:</strong> 
+            <strong>Deadline:</strong> 
             {% if res.is_overdue %}
               <span style="color: #e74c3c;">{{ res.expiry_time }}</span> ❌
             {% else %}
@@ -134,10 +134,10 @@
           {% if is_advanced and res.is_overdue %}
             {% if res.can_send_reminder %}
             <form method="post" action="{{ url_for('send_reminder', username=uname, reservation_id=res.reservation_id) }}" style="margin-top:8px;">
-              <button type="submit" class="outlined-btn">Надіслати нагадування</button>
+              <button type="submit" class="outlined-btn">Send reminder</button>
             </form>
             {% else %}
-              <div class="reservation-detail" style="color:var(--secondary-accent); font-size:13px; margin-top:8px;">Нагадування для цієї книги можна надсилати не частіше ніж раз на добу</div>
+              <div class="reservation-detail" style="color:var(--secondary-accent); font-size:13px; margin-top:8px;">Reminder for this book can only be sent once per day</div>
             {% endif %}
           {% endif %}
         </div>
@@ -145,7 +145,7 @@
       </div>
       {% else %}
       <div class="reservations-section">
-        <p class="no-reservations">Немає забронійованих книг</p>
+        <p class="no-reservations">No reserved books</p>
       </div>
       {% endif %}
     </div>

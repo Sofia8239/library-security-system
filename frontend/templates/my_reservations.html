@@ -3,8 +3,8 @@
 <div class="page-card">
   <div class="page-header">
     <div>
-      <h1>Мої бронювання</h1>
-      <p>Тут відображаються всі ваші активні та минулі бронювання.</p>
+      <h1>My Reservations</h1>
+      <p>All your active and past reservations are shown here.</p>
     </div>
   </div>
 
@@ -16,32 +16,32 @@
           <div class="ticket-info">
             <h3>{{ reservation.book_title }}</h3>
             <p class="ticket-code gold-font">{{ reservation.reservation_id }}</p>
-            <p>{{ reservation.reservation_date or 'Дата недоступна' }}</p>
+            <p>{{ reservation.reservation_date or 'Date unavailable' }}</p>
           </div>
           <div class="ticket-timer" data-expiry="{{ reservation.expiry_time }}">
             {% if reservation.is_active() %}
               {{ reservation.time_remaining().total_seconds() // 3600 }}:{{ '%02d' % ((reservation.time_remaining().total_seconds() % 3600) // 60) }}:{{ '%02d' % (reservation.time_remaining().total_seconds() % 60) }}
             {% else %}
-              Просрочено
+              Overdue
             {% endif %}
           </div>
           <div class="ticket-actions">
             <form method="post" action="{{ url_for('return_reservation', reservation_id=reservation.reservation_id) }}" class="return-form">
-              <button type="submit" class="gold-button">Повернути</button>
+              <button type="submit" class="gold-button">Return</button>
             </form>
           </div>
         </div>
       {% endfor %}
     </div>
   {% else %}
-    <p>У вас ще немає бронювань.</p>
+    <p>You have no reservations yet.</p>
   {% endif %}
 </div>
 
 <script>
 document.querySelectorAll('.return-form').forEach(form => {
   form.addEventListener('submit', function(e) {
-    if (!confirm('Підтвердити повернення книги?')) {
+    if (!confirm('Confirm book return?')) {
       e.preventDefault();
     }
   });

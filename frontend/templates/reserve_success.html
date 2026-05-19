@@ -2,19 +2,19 @@
 {% block content %}
 <div class="page-card">
   <div class="success-message">
-    <h1>✅ Книга успішно заброньована!</h1>
+    <h1>✅ Book reserved successfully!</h1>
     <div class="reservation-details">
       <h2>{{ reservation.book_title }}</h2>
-      <p><strong>Код бронювання:</strong> <span class="gold-font">{{ reservation.reservation_id }}</span></p>
-      <p><strong>Час закінчення:</strong> {{ reservation.expiry_time }}</p>
+      <p><strong>Reservation code:</strong> <span class="gold-font">{{ reservation.reservation_id }}</span></p>
+      <p><strong>Expiry time:</strong> {{ reservation.expiry_time }}</p>
       <div class="countdown">
-        <p>Час до закінчення бронювання:</p>
-        <div class="timer" data-expiry="{{ reservation.expiry_time }}">Обчислення...</div>
+        <p>Time until reservation expires:</p>
+        <div class="timer" data-expiry="{{ reservation.expiry_time }}">Calculating...</div>
       </div>
     </div>
     <div class="actions">
-      <a href="{{ url_for('home') }}" class="gold-button">Повернутися до каталогу</a>
-      <a href="{{ url_for('my_reservations') }}" class="button">Переглянути мої бронювання</a>
+      <a href="{{ url_for('home') }}" class="gold-button">Back to catalog</a>
+      <a href="{{ url_for('my_reservations') }}" class="button">View my reservations</a>
     </div>
   </div>
 </div>
@@ -30,7 +30,7 @@ function updateTimer() {
   const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
   timerEl.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   if (remaining <= 0) {
-    timerEl.textContent = 'Час вийшов!';
+    timerEl.textContent = 'Time expired!';
     clearInterval(interval);
   }
 }

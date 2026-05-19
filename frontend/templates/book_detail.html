@@ -9,61 +9,61 @@
       <h1>{{ book.title }}</h1>
       <p class="meta">{{ book.author }} · {{ book.genre }} · {{ book.year }}</p>
       <p>{{ book.description }}</p>
-      <p><strong>Доступних копій:</strong> {{ book.available_copies }} / {{ book.total_copies }}</p>
-      <p><strong>Рейтинг:</strong> {{ rating|round(1) }}</p>
+      <p><strong>Available copies:</strong> {{ book.available_copies }} / {{ book.total_copies }}</p>
+      <p><strong>Rating:</strong> {{ rating|round(1) }}</p>
       <div class="actions">
         {% if book.available %}
           <form method="post" action="{{ url_for('reserve', book_id=book.id) }}" class="reserve-form" style="display:inline-block;">
-            <label style="margin-right:6px">Тривалість</label>
+            <label style="margin-right:6px">Duration</label>
             <input type="number" name="duration" value="1" min="1" style="width:70px;" />
             <select name="unit" style="margin-left:6px;">
               <option value="days">days</option>
               <option value="hours">hours</option>
               <option value="minutes">minutes</option>
             </select>
-            <button type="submit" class="button">Забронювати</button>
+            <button type="submit" class="button">Reserve</button>
           </form>
         {% endif %}
-        <button id="favorite-btn" type="button" class="button tertiary" data-book-id="{{ book.id }}">{{ 'Видалити з обраного' if user.has_favorite(book.id) else 'Обране' }}</button>
+        <button id="favorite-btn" type="button" class="button tertiary" data-book-id="{{ book.id }}">{{ 'Remove from Favorites' if user.has_favorite(book.id) else 'Add to Favorites' }}</button>
       </div>
     </div>
   </div>
 
   <section class="book-section">
-    <h2>Попередній перегляд</h2>
+    <h2>Preview</h2>
     {% if preview_text %}
       <pre class="preview-text">{{ preview_text }}</pre>
     {% else %}
-      <p class="error-text">{{ preview_error or 'Попередній перегляд недоступний.' }}</p>
+      <p class="error-text">{{ preview_error or 'Preview unavailable.' }}</p>
     {% endif %}
   </section>
 
   <section class="book-section">
-    <h2>Відгуки</h2>
+    <h2>Reviews</h2>
     {% if reviews %}
       <ul class="review-list">
         {% for review in reviews %}
           <li>
-            <strong>{{ review.username }}</strong> — рейтинг {{ review.rating }}
+            <strong>{{ review.username }}</strong> — rating {{ review.rating }}
             <p>{{ review.comment }}</p>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p>Ще немає відгуків.</p>
+      <p>No reviews yet.</p>
     {% endif %}
 
     <form method="post" class="auth-form">
-      <label>Ваш рейтинг</label>
+      <label>Your rating</label>
       <select name="rating" required>
-        <option value="" disabled selected>Оцініть книгу</option>
+        <option value="" disabled selected>Rate this book</option>
         {% for value in range(1, 6) %}
           <option value="{{ value }}">{{ value }}</option>
         {% endfor %}
       </select>
-      <label>Коментар</label>
+      <label>Comment</label>
       <textarea name="comment" rows="3" required></textarea>
-      <button type="submit">Додати відгук</button>
+      <button type="submit">Add review</button>
     </form>
   </section>
 </div>
@@ -81,13 +81,13 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          this.textContent = data.is_favorite ? 'Видалити з обраного' : 'Обране';
+          this.textContent = data.is_favorite ? 'Remove from Favorites' : 'Add to Favorites';
         } else {
           alert(data.message);
         }
       })
       .catch(() => {
-        alert('Не вдалося оновити обране');
+        alert('Could not update favorites');
       });
     });
   }

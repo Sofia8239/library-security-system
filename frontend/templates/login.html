@@ -2,30 +2,29 @@
 {% block content %}
 <div class="page-card auth-card">
   <h1>SafeLibrary</h1>
-  <p>Увійдіть у свій обліковий запис</p>
+  <p>Sign in to your account</p>
 
   <form method="post" class="auth-form">
-    <label>Електронна пошта</label>
+    <label>Email</label>
     <input type="email" name="email" placeholder="Email" required>
 
-    <label>Пароль</label>
+    <label>Password</label>
     <input type="password" name="password" placeholder="Password" required>
 
-    <button type="submit" class="button">Увійти</button>
+    <button type="submit" class="button">Sign In</button>
   </form>
 
-  <div class="divider">або</div>
+  <div class="divider">or</div>
 
-  <button id="google-login-btn" class="gold-button">Увійти через Google</button>
+  <button id="google-login-btn" class="gold-button">Sign in with Google</button>
 
-  <p class="small-text">Немає облікового запису? <a href="{{ url_for('register') }}">Зареєструватися</a></p>
+  <p class="small-text">Don’t have an account? <a href="{{ url_for('register') }}">Register</a></p>
 </div>
 
 <!-- Google Auth Modal -->
-<div id="google-modal" class="modal">
   <div class="modal-content">
     <span class="close">&times;</span>
-    <h2>Оберіть Google акаунт</h2>
+    <h2>Choose a Google account</h2>
     <form method="post" class="auth-form">
       <input type="hidden" name="google" value="1">
       {% for account in google_accounts %}

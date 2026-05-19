@@ -272,6 +272,10 @@ body {
   min-height: 48px;
 }
 
+.search-form .search-input-row button {
+  width: auto;
+}
+
 @media (max-width: 900px) {
   .search-form {
     grid-template-columns: 1fr;
@@ -659,6 +663,7 @@ input[type="button"]:focus {
 /* Bottom Navigation */
 .bottom-nav {
   position: fixed;
+  z-index: 9999;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);

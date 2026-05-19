@@ -1,20 +1,20 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="page-card">
-  <h1>Ласкаво просимо до SafeLibrary!</h1>
-  <p>Оберіть аватар для вашого профілю</p>
+  <h1>Welcome to SafeLibrary!</h1>
+  <p>Choose an avatar for your profile</p>
 
   <form method="post" enctype="multipart/form-data" class="onboarding-form">
     <div class="avatar-options">
       <div class="option">
-        <h3>Завантажити власне фото</h3>
+        <h3>Upload your own photo</h3>
         <input type="hidden" name="avatar_type" value="upload">
         <input type="file" name="avatar" accept="image/*" required>
-        <button type="submit" class="gold-button">Завантажити</button>
+        <button type="submit" class="gold-button">Upload</button>
       </div>
 
       <div class="option">
-        <h3>Або оберіть з готових</h3>
+        <h3>Or choose from presets</h3>
         <input type="hidden" name="avatar_type" value="default">
         <div class="default-avatars">
           {% for avatar in ['owl', 'cat', 'bear', 'fox', 'raccoon'] %}
@@ -25,7 +25,7 @@
             </label>
           {% endfor %}
         </div>
-        <button type="submit" class="gold-button">Обрати</button>
+        <button type="submit" class="gold-button">Choose</button>
       </div>
     </div>
   </form>

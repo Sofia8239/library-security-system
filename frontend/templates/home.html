@@ -3,25 +3,25 @@
 <div class="page-card">
   <div class="page-header">
     <div>
-      <h1>Ласкаво просимо, {{ profile_name }}</h1>
-      <p>Знайдіть книги, забронюйте та додайте до обраного.</p>
+      <h1>Welcome, {{ profile_name }}</h1>
+      <p>Search books, reserve them, and add favorites.</p>
     </div>
   </div>
 
   <form method="get" class="search-form">
     <div class="form-group search-input-group">
-      <label for="title-search">Назва або ISBN</label>
+      <label for="title-search">Title or ISBN</label>
       <div class="search-input-row">
-        <input id="title-search" type="text" name="title" value="{{ criteria.title }}" placeholder="Пошук за назвою або ISBN">
-        <button type="submit" class="gold-button">Пошук</button>
+        <input id="title-search" type="text" name="title" value="{{ criteria.title }}" placeholder="Search by title or ISBN">
+        <button type="submit" class="gold-button">Search</button>
       </div>
     </div>
 
     <div class="search-filters">
       <div class="form-group">
-        <label for="author-search">Автор</label>
+        <label for="author-search">Author</label>
         <select id="author-search" name="author" class="auto-submit">
-          <option value="" {% if not criteria.author %}selected{% endif %}>Усі автори</option>
+          <option value="" {% if not criteria.author %}selected{% endif %}>All authors</option>
           {% for author in authors %}
             <option value="{{ author }}" {% if criteria.author == author %}selected{% endif %}>{{ author }}</option>
           {% endfor %}
@@ -29,15 +29,15 @@
       </div>
 
       <div class="form-group">
-        <label for="genre-search">Жанр</label>
+        <label for="genre-search">Genre</label>
         <select id="genre-search" name="genre" class="auto-submit">
-        <option value="" {% if not criteria.genre %}selected{% endif %}>Всі жанри</option>
-        <option value="fantasy" {% if criteria.genre == 'fantasy' %}selected{% endif %}>Фантастика</option>
-        <option value="crime" {% if criteria.genre == 'crime' %}selected{% endif %}>Кримінал</option>
-        <option value="drama" {% if criteria.genre == 'drama' %}selected{% endif %}>Драма</option>
-        <option value="history" {% if criteria.genre == 'history' %}selected{% endif %}>Історія</option>
-        <option value="science" {% if criteria.genre == 'science' %}selected{% endif %}>Наука</option>
-        <option value="tech" {% if criteria.genre == 'tech' %}selected{% endif %}>Технології</option>
+        <option value="" {% if not criteria.genre %}selected{% endif %}>All genres</option>
+        <option value="fantasy" {% if criteria.genre == 'fantasy' %}selected{% endif %}>Fantasy</option>
+        <option value="crime" {% if criteria.genre == 'crime' %}selected{% endif %}>Crime</option>
+        <option value="drama" {% if criteria.genre == 'drama' %}selected{% endif %}>Drama</option>
+        <option value="history" {% if criteria.genre == 'history' %}selected{% endif %}>History</option>
+        <option value="science" {% if criteria.genre == 'science' %}selected{% endif %}>Science</option>
+        <option value="tech" {% if criteria.genre == 'tech' %}selected{% endif %}>Technology</option>
       </select>
     </div>
   </div>
@@ -53,17 +53,17 @@
         <div class="book-content">
           <h2>{{ book.title }}</h2>
           <p class="meta">{{ book.author }} · {{ book.genre }} · {{ book.year }}</p>
-          <p class="status">Доступних: {{ book.available_copies }} / {{ book.total_copies }}</p>
+          <p class="status">Available: {{ book.available_copies }} / {{ book.total_copies }}</p>
           <div class="actions">
-            <a class="button tertiary" href="{{ url_for('book_detail', book_id=book.id) }}">Деталі</a>
+            <a class="button tertiary" href="{{ url_for('book_detail', book_id=book.id) }}">Details</a>
             {% if book.available %}
-              <button class="button reserve-open-btn" data-book-id="{{ book.id }}" data-book-title="{{ book.title|e }}">Забронювати</button>
+              <button class="button reserve-open-btn" data-book-id="{{ book.id }}" data-book-title="{{ book.title|e }}">Reserve</button>
             {% endif %}
           </div>
         </div>
       </article>
     {% else %}
-      <p>Книг не знайдено.</p>
+      <p>No books found.</p>
     {% endfor %}
   </div>
 </div>
@@ -72,10 +72,10 @@
 <div id="reserve-modal" class="modal">
   <div class="modal-content">
     <span class="close">&times;</span>
-    <h2 id="reserve-modal-title">Забронювати книгу</h2>
+    <h2 id="reserve-modal-title">Reserve Book</h2>
     <form id="reserve-modal-form" method="post" action="">
       <div style="margin-bottom:8px"><strong id="reserve-book-title"></strong></div>
-      <label>Тривалість</label>
+      <label>Duration</label>
       <input type="number" name="duration" value="1" min="1" style="width:70px; margin-right:8px;" />
       <select name="unit">
         <option value="days">days</option>
@@ -83,8 +83,8 @@
         <option value="minutes">minutes</option>
       </select>
       <div style="margin-top:12px; display:flex; gap:8px;">
-        <button type="submit" class="gold-button">Підтвердити бронювання</button>
-        <button type="button" id="reserve-cancel" class="button tertiary">Скасувати</button>
+        <button type="submit" class="gold-button">Confirm Reservation</button>
+        <button type="button" id="reserve-cancel" class="button tertiary">Cancel</button>
       </div>
     </form>
   </div>

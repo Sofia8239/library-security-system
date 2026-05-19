@@ -1,34 +1,34 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="page-card auth-card">
-  <h1>Реєстрація</h1>
-  <p>Створіть новий обліковий запис</p>
+  <h1>Register</h1>
+  <p>Create a new account</p>
 
   <form method="post" class="auth-form">
-    <label>Ім'я</label>
+    <label>Full Name</label>
     <input type="text" name="full_name" placeholder="Full Name" required>
 
-    <label>Електронна пошта</label>
+    <label>Email</label>
     <input type="email" name="email" placeholder="Email" required>
 
-    <label>Пароль</label>
+    <label>Password</label>
     <input type="password" name="password" placeholder="Password" required>
 
-    <label>Номер телефону</label>
+    <label>Phone</label>
     <input type="tel" name="phone" placeholder="+380XXXXXXXXX">
 
-    <label>Місто</label>
-    <input type="text" name="city" placeholder="Львів">
+    <label>City</label>
+    <input type="text" name="city" placeholder="Lviv">
 
-    <label>Дата народження</label>
+    <label>Birth Date</label>
     <input type="date" name="birth_date">
 
-    <label>Адреса проживання</label>
-    <input type="text" name="address" placeholder="вулиця, будинок, квартира">
+    <label>Address</label>
+    <input type="text" name="address" placeholder="Street, house, apartment">
 
-    <button type="submit">Зареєструватися</button>
+    <button type="submit">Register</button>
   </form>
 
-  <p class="small-text">Вже маєте обліковий запис? <a href="{{ url_for('login') }}">Увійти</a></p>
+  <p class="small-text">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
 </div>
 {% endblock %}

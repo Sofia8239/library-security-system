@@ -54,7 +54,7 @@ class TestEndpoints(unittest.TestCase):
     def test_login_page_loads(self):
         response = self.client.get('/login')
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Увійдіть у свій обліковий запис', response.get_data(as_text=True))
+        self.assertIn('Sign in to your account', response.get_data(as_text=True))
 
     def test_register_and_access_home(self):
         response = self.client.post(
@@ -71,7 +71,7 @@ class TestEndpoints(unittest.TestCase):
             follow_redirects=True,
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn('аватар', response.get_data(as_text=True))
+        self.assertIn('avatar', response.get_data(as_text=True))
 
         response = self.client.get('/home')
         self.assertEqual(response.status_code, 200)
@@ -102,7 +102,7 @@ class TestEndpoints(unittest.TestCase):
 
         response = self.client.get('/reserve/test1', follow_redirects=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Книга заброньована', response.get_data(as_text=True))
+        self.assertIn('Book reserved', response.get_data(as_text=True))
 
     def test_favorite_toggle_endpoint(self):
         self.login_test_user()

@@ -1270,14 +1270,13 @@ class LibrarySystem:
             smtp_user = os.getenv('EMAIL_SMTP_USER', '')
             smtp_pass = os.getenv('EMAIL_SMTP_PASS', '')
             email_from = os.getenv('EMAIL_FROM', 'noreply@library.com')
-
-            subject = f"Нагадування: прострочена книга '{reservation.book_title}'"
+            subject = f"Reminder: overdue book '{reservation.book_title}'"
             body = (
-                f"Шановний(а) {profile.get('full_name', reservation.username)},\n\n"
-                f"Нагадаємо, що ви маєте повернути книгу '{reservation.book_title}' (ID: {reservation.book_id}).\n"
-                f"Дедлайн: {reservation.expiry_time}\n\n"
-                "Будь ласка, поверніть книгу або зв'яжіться з бібліотекою.\n\n"
-                "З повагою,\nКоманда бібліотеки"
+                f"Dear {profile.get('full_name', reservation.username)},\n\n"
+                f"This is a reminder to return the book '{reservation.book_title}' (ID: {reservation.book_id}).\n"
+                f"Deadline: {reservation.expiry_time}\n\n"
+                "Please return the book or contact the library.\n\n"
+                "Regards,\nLibrary Team"
             )
 
             sent = False

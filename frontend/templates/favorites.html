@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="page-card">
-  <h1>Обране</h1>
-  <p>Відзначені вами книги.</p>
+  <h1>Favorites</h1>
+  <p>Your bookmarked books.</p>
 
   <div class="book-grid favorites-grid">
     {% for book in books %}
@@ -13,13 +13,13 @@
           <p class="meta">{{ book.author }} · {{ book.genre }}</p>
           <p>{{ book.description[:120] }}{% if book.description|length > 120 %}...{% endif %}</p>
           <div class="actions">
-            <a class="button" href="{{ url_for('book_detail', book_id=book.id) }}">Деталі</a>
-            <button type="button" class="button tertiary favorite-remove-btn" data-book-id="{{ book.id }}">Видалити</button>
+            <a class="button" href="{{ url_for('book_detail', book_id=book.id) }}">Details</a>
+            <button type="button" class="button tertiary favorite-remove-btn" data-book-id="{{ book.id }}">Remove</button>
           </div>
         </div>
       </article>
     {% else %}
-      <p>Немає жодної книги в обраному.</p>
+      <p>No books in favorites.</p>
     {% endfor %}
   </div>
 </div>
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       })
       .catch(() => {
-        alert('Не вдалося оновити обране');
+        alert('Could not update favorites');
       });
     });
   });

@@ -14,93 +14,93 @@
     </div>
     <div class="profile-actions">
       <form id="avatar-form" action="{{ url_for('upload_avatar') }}" method="post" enctype="multipart/form-data" class="avatar-upload">
-        <label for="avatar-input" class="button secondary">Оновити аватар</label>
+        <label for="avatar-input" class="button secondary">Update avatar</label>
         <input type="file" id="avatar-input" name="avatar" accept="image/*" style="display: none;">
       </form>
-      <button id="delete-avatar-btn" class="button secondary">Видалити фото</button>
+      <button id="delete-avatar-btn" class="button secondary">Remove photo</button>
     </div>
   </div>
 
   <section class="security-card">
-    <h2>Інформація про обліковий запис</h2>
+    <h2>Account Information</h2>
     <div class="profile-grid">
       <div><strong>Email:</strong> {{ profile_data.email or user.username }}</div>
-      <div><strong>Телефон:</strong> {{ profile_data.phone or 'Не задано' }}</div>
-      <div><strong>Місто:</strong> {{ profile_data.city or 'Не задано' }}</div>
-      <div><strong>Адреса:</strong> {{ profile_data.address or 'Не задано' }}</div>
-      <div><strong>Дата народження:</strong> {{ profile_data.birth_date or 'Не задано' }}</div>
-      <div><strong>Роль:</strong> {{ user.role }}</div>
+      <div><strong>Phone:</strong> {{ profile_data.phone or 'Not set' }}</div>
+      <div><strong>City:</strong> {{ profile_data.city or 'Not set' }}</div>
+      <div><strong>Address:</strong> {{ profile_data.address or 'Not set' }}</div>
+      <div><strong>Birth Date:</strong> {{ profile_data.birth_date or 'Not set' }}</div>
+      <div><strong>Role:</strong> {{ user.role }}</div>
     </div>
   </section>
 
   <section class="profile-section">
     <div class="section-header">
-      <h2>Редагувати особисті дані</h2>
+      <h2>Edit personal details</h2>
       <button id="toggle-profile-form" type="button" class="button tertiary">Update Profile</button>
     </div>
     <form id="profile-form" method="post" action="{{ url_for('profile') }}" class="auth-form hidden-section">
-      <label>ПІБ</label>
+      <label>Full Name</label>
       <input type="text" name="full_name" value="{{ profile_data.full_name or '' }}" required>
 
-      <label>Телефон</label>
+      <label>Phone</label>
       <input type="tel" name="phone" value="{{ profile_data.phone or '' }}">
 
-      <label>Місто</label>
+      <label>City</label>
       <input type="text" name="city" value="{{ profile_data.city or '' }}">
 
-      <label>Адреса</label>
+      <label>Address</label>
       <input type="text" name="address" value="{{ profile_data.address or '' }}">
 
-      <label>Дата народження</label>
+      <label>Birth Date</label>
       <input type="date" name="birth_date" value="{{ profile_data.birth_date or '' }}">
 
-      <button type="submit">Зберегти дані</button>
+      <button type="submit">Save details</button>
     </form>
   </section>
 
   <section class="profile-section">
     <div class="section-header">
-      <h2>Змінити пароль</h2>
+      <h2>Change password</h2>
       <button id="toggle-password-form" type="button" class="button tertiary">Change Password</button>
     </div>
     <form id="password-form" method="post" action="{{ url_for('profile') }}" class="auth-form hidden-section">
-      <label>Поточний пароль</label>
+      <label>Current password</label>
       <input type="password" name="current_password" required>
-      <label>Новий пароль</label>
+      <label>New password</label>
       <input type="password" name="new_password" required>
-      <button type="submit">Оновити пароль</button>
+      <button type="submit">Update Password</button>
     </form>
   </section>
 
 
   <section>
-    <h2>Бібліотечна Крамниця</h2>
+    <h2>Library Shop</h2>
     <div class="rewards-grid">
       <div class="reward-item">
-        <h3>10% Знижка на преміум</h3>
+        <h3>10% Premium Discount</h3>
         <p>50 SafePoints</p>
-        <button class="gold-button redeem-btn" data-cost="50" data-reward="discount">Обміняти</button>
+        <button class="gold-button redeem-btn" data-cost="50" data-reward="discount">Redeem</button>
       </div>
       <div class="reward-item">
-        <h3>Закладка SafeLibrary</h3>
+        <h3>SafeLibrary Bookmark</h3>
         <p>100 SafePoints</p>
-        <button class="gold-button redeem-btn" data-cost="100" data-reward="bookmark">Обміняти</button>
+        <button class="gold-button redeem-btn" data-cost="100" data-reward="bookmark">Redeem</button>
       </div>
       <div class="reward-item">
-        <h3>Блокнот або сумка</h3>
+        <h3>Notebook or Bag</h3>
         <p>200 SafePoints</p>
-        <button class="gold-button redeem-btn" data-cost="200" data-reward="notepad">Обміняти</button>
+        <button class="gold-button redeem-btn" data-cost="200" data-reward="notepad">Redeem</button>
       </div>
       <div class="reward-item">
-        <h3>Керамічна чашка</h3>
+        <h3>Ceramic Mug</h3>
         <p>500 SafePoints</p>
-        <button class="gold-button redeem-btn" data-cost="500" data-reward="cup">Обміняти</button>
+        <button class="gold-button redeem-btn" data-cost="500" data-reward="cup">Redeem</button>
       </div>
     </div>
   </section>
     <div style="margin-top: 16px;">
-      <button id="gdpr-btn" class="gold-button" style="background: #C06014;">Видалити всі дані (GDPR)</button>
-      <a href="{{ url_for('logout') }}" class="outlined-btn">Вийти з системи</a>
+      <button id="gdpr-btn" class="gold-button" style="background: #C06014;">Delete all data (GDPR)</button>
+      <a href="{{ url_for('logout') }}" class="outlined-btn">Logout</a>
     </div>
 </div>
 
@@ -108,11 +108,11 @@
 <div id="gdpr-modal" class="modal">
   <div class="modal-content">
     <span class="close">&times;</span>
-    <h2>Підтвердження видалення</h2>
-    <p>Це призведе до видалення всіх ваших даних. Введіть "delete" для підтвердження.</p>
+    <h2>Delete confirmation</h2>
+    <p>This will delete all your data. Type "delete" to confirm.</p>
     <form method="post" action="{{ url_for('gdpr_wipe') }}">
       <input type="text" name="confirm" placeholder="delete" required>
-      <button type="submit" class="gold-button" style="background: #C06014;">Видалити</button>
+      <button type="submit" class="gold-button" style="background: #C06014;">Delete</button>
     </form>
   </div>
 </div>
@@ -139,7 +139,7 @@ document.querySelectorAll('.redeem-btn').forEach(btn => {
   btn.addEventListener('click', function() {
     const cost = this.dataset.cost;
     const reward = this.dataset.reward;
-    if (confirm(`Обміняти ${cost} SafePoints на ${reward}?`)) {
+    if (confirm(`Redeem ${cost} SafePoints for ${reward}?`)) {
       fetch('/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,7 +148,7 @@ document.querySelectorAll('.redeem-btn').forEach(btn => {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          alert('Обмін успішний!');
+          alert('Redeem successful!');
           location.reload();
         } else {
           alert(data.message);
@@ -160,7 +160,7 @@ document.querySelectorAll('.redeem-btn').forEach(btn => {
 
 // Delete avatar
 document.getElementById('delete-avatar-btn').addEventListener('click', function() {
-  if (confirm('Видалити фото профілю?')) {
+  if (confirm('Delete profile photo?')) {
     fetch('/delete_avatar', { method: 'POST' })
     .then(response => response.json())
     .then(data => {
@@ -205,7 +205,7 @@ if (togglePasswordButton && passwordForm) {
 // Confirm before returning a reservation
 document.querySelectorAll('.return-form').forEach(form => {
   form.addEventListener('submit', function(e) {
-    if (!confirm('Підтвердити повернення книги?')) {
+    if (!confirm('Confirm book return?')) {
       e.preventDefault();
     }
   });
